@@ -1,0 +1,185 @@
+/* Existujúci štýl pre .container */
+y
+  
+/* Štýly pre profilovú kartu */
+.profile-card {
+  max-width: 90%; /* alebo 100% ak chcete zobraziť kartu cez celú šírku */
+  width: 100%; /* pridáme, aby sme zaručili, že karta sa rozšíri na maximálnu šírku */
+  max-height: 80vh;
+  border-radius: 15px;
+  overflow: hidden;
+  background-color: #f8f9fa;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eaeaea;
+  padding: 1rem;
+  margin-top: 10vh;  
+  position: relative; /* odstráni position fixed, ktorý môže byť problém pre rozšírenie */
+  left: 0; /* odstráni transform, ktorý môže brániť rozšíreniu */
+  transform: none;
+}
+
+/* Zlepšenie rozloženia detailov profilu */
+.profile-details {
+  width: 100%; /* zabezpečí, aby detaily zaberali celú šírku karty */
+  display: flex;
+  flex-direction: column; /* zmeniť na row ak chcete detaily vedľa seba */
+  align-items: center; /* zarovná obsah na stred ak je v column, zmeniť na flex-start pre zarovnanie vľavo */
+}
+
+/*.card-body {
+    display: flex;
+    flex-direction: column; /* Usporiadanie obsahu vertikálne */
+   /*align-items: center; /* Centrovanie obsahu 
+    gap: 1rem;
+    width: 100%;
+}*/
+
+/* Štýly pre nadpis a detaily profilu */
+.card-title, .profile-name, .profile-email {
+    width: 100%; /* Plná šírka karty pre zarovnanie textu */
+    text-align: center; /* Centrový text */
+}
+
+.card-title {
+    font-size: 1.75rem; /* Veľkosť písma pre nadpis */
+    color: #007bff; /* Farba nadpisu */
+    font-weight: bold;
+}
+
+.profile-name {
+    font-size: 1.25rem; /* Veľkosť písma pre meno a priezvisko */
+    color: #495057; /* Tmavšia farba pre lepšiu čitateľnosť */
+    font-weight: 500; /* Polotučné */
+}
+
+.profile-email {
+    font-size: 1rem; /* Štandardná veľkosť písma pre email */
+    color: #6c757d; /* Šedá farba pre menej dôležité informácie */
+}
+.article-preview {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #eaeaea; /* Prípadne nastavte špecifickú farbu */
+  background-color: #fff; /* Biele pozadie pre článok */
+  border-radius: 4px; /* Mierne zaoblené rohy */
+  margin-bottom: 5px; /* ešte menšia medzera medzi položkami */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Jemný tieň pre hĺbku */
+  width: 100%; /* Každá položka preview sa rozprestrie na celú šírku */
+}
+
+.article-preview h5 {
+  font-size: 1rem; /* Upravte velikost nadpisu článku */
+}
+
+.article-preview p {
+  font-size: 0.8rem; /* Menší text pro informace o článku */
+}
+
+.my-articles-heading {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem; /* Alebo akúkoľvek inú hodnotu, ktorá vyhovuje vašemu dizajnu */
+}
+
+.user-articles-section {
+  margin-bottom: 1rem; /* Oddeľujeme sekciu od ostatných častí */
+}
+
+.user-articles, .liked-articles {
+  max-height: 25vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* Scrollovateľnosť */
+  gap: 10px;
+  width: 100%; /* Aby zaberajú celú šírku rodiča */
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.articles-container {
+  display: flex;
+  flex-wrap: wrap; /* umožní článkom prejsť na ďalší riadok ak nie je dostatok miesta */
+  justify-content: flex-start; /* zarovná články na začiatok */
+  gap: 10px; /* zväčšíme medzeru medzi položkami */
+  margin-top: 0;
+  max-height: 400px;
+  overflow-y: auto; /* Scrollovateľnosť */
+  width: 100%; /* Pridané pre zabezpečenie, že kontajner zaberá celú šírku */
+}
+/* Základné štýly pre tlačidlá (môže byť už definované v globálnych štýloch) */
+.btn {
+  cursor: pointer;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+}
+
+/* Prispôsobenie dropmenu */
+select {
+  padding: 10px;
+  margin-right: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.btn, select {
+  padding: 0.5rem 1rem; /* zväčšíme padding pre lepší vzhľad */
+}
+
+.btn-danger {
+  font-size: 0.8rem; /* Menší tlačítko */
+  margin-bottom: 0px;
+}
+
+.btn-sm {
+  padding: .25rem .5rem;
+  font-size: .875rem;
+  line-height: 1.5;
+  border-radius: .2rem;
+}
+
+/* Štýly pre tlačidlo Unlike podobne ako Delete */
+.btn-unlike {
+  color: #fff; /* Biela farba textu */
+  background-color: #dc3545; /* Červená farba pozadia */
+  border: none; /* Bez rámu */
+  margin: 0; /* Odstránenie externých okrajov */
+  padding: 5px 10px; /* Vnútorné odsadenie */
+  font-size: 0.8rem; /* Menšia veľkosť písma */
+  border-radius: 4px; /* Zaoblené rohy */
+  margin-left: auto; /* Presunie tlačidlo na pravú stranu */
+}
+
+.btn-primary, select {
+  margin-left: 10px;
+}
+
+.article-preview-content{
+  display: flex;
+  overflow: hidden; /* Zabránenie pretečeniu obsahu */
+  text-overflow: ellipsis; /* Pridanie trojbodky, ak je text príliš dlhý */
+  flex: 1; /* Zabezpečí, aby obsah zaberal dostupný priestor */
+  min-width: 0; /* Zabraňuje rozšíreniu nad rodičovský element */
+}
+.article-preview-content p, .article-preview-content h5{
+  margin: 5px;
+}
+
+.edit-article-btn {
+  color: #ffffff; /* biela text farba */
+  background-color: #17a2b8; /* Bootstrap 'info' modrá */
+  border-color: #17a2b8; /* Hranica rovnakej farby ako pozadie */
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out; /* Plynulá animácia pre hover efekt */
+}
+
+.edit-article-btn:hover {
+  background-color: #138496; /* Tmavšia modrá pre hover */
+  border-color: #117a8b; /* Ešte tmavšia modrá pre hranice hover */
+}
+

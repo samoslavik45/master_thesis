@@ -1,0 +1,36 @@
+/* Login.css */
+.login-container {
+  max-width: 500px;
+
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background-color: #fff;
+
+  }
+  
+  .login-form .form-control {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    margin-left: 5px;
+    margin-top: 5px;
+  }
+  .login-form .btn-primary {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    border: none;
+  }
+  
+  .login-form .btn-primary:hover {
+    background-color: #0056b3;
+  }
+  
+  .login-form input::placeholder {
+    font-style: italic;
+  }
+  
+  .login-form button:hover {
+    opacity: 0.8;
+  }
+    

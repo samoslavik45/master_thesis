@@ -1,0 +1,33 @@
+.register-container {
+    max-width: 500px;
+    margin: 30% auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: #fff;
+  }
+  
+  .register-form .form-control {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+  }
+  
+  .register-form .btn-primary {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    border: none;
+  }
+  
+  .register-form .btn-primary:hover {
+    background-color: #0056b3;
+  }
+  
+  .register-form input::placeholder {
+    font-style: italic;
+  }
+  
+  .register-form button:hover {
+    opacity: 0.8;
+  }
+  

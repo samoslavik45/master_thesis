@@ -1,0 +1,174 @@
+.groups-container {
+    display: grid;
+    position: fixed;
+    justify-content: start; /* Změna pro začátek obsahu */
+    flex-direction: column;
+    align-items: center;
+    width: 80%;
+    padding: 20px;
+    box-sizing: border-box;
+    grid-template-columns: 300px 1fr; /* 300px pre bočný panel, zvyšok pre detail */
+    gap: 20px;
+}
+  
+.group-list {
+  width: 100%;
+  position: static;
+  max-width: 350px;
+  margin-top: 20px;
+  overflow-y: auto; /* Pridanie scrollovania pre zoznam */
+  max-height: 350px; /* upravte podľa potrebnej výšky */
+  flex: 1;
+  margin-right: 10px;
+}
+
+
+.group-item {
+    background-color: #ffffff;
+    border: 1px solid #dddddd;
+    padding: 20px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.button-container {
+    position: sticky;
+    top: 0; /* nechajte tlačidlá hore */
+    background: white; /* aby boli viditeľné pri scrollovaní */
+    z-index: 10;
+    padding: 10px;
+    margin-bottom: 10px; /* aby sa zoznam skupín nezdvihol hore */
+}
+
+.group-name {
+  font-weight: bold;
+}
+
+.group-actions-top {
+  flex: 3;
+  position: fixed;
+  top: 79vh; /* Nastavte vhodně vzhledem k horní části stránky */
+  left: 23vh; /* Přizpůsobte tak, aby to vyhovovalo vašemu layoutu */
+  width: 15.5%; /* Nebo pevná šířka podle vašeho designu */
+  z-index: 1000; /* Ujistěte se, že tlačítka zůstanou nad ostatními prvky */
+}
+
+
+.group-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.group-actions button {
+    padding: 5px 15px;
+    margin-right: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.group-actions button:hover {
+    background-color: #0056b3;
+  }
+  
+
+/* Tlačidlo pre vytvorenie skupiny a zobrazenie pozvánok */
+.groups-container > button {
+    padding: 10px 20px;
+    margin: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.groups-container > button:hover {
+  background-color: #0056b3;
+}
+
+.create-group-button,
+.invite-button {
+  padding: 10px 20px; /* Dáme rovnaký padding pre obidve tlačidlá */
+  margin-bottom: 10px; /* Pridáme margin-bottom pre tlačidlo, aby medzi nimi bola medzera */
+  background-color: #007bff; /* Zmena farby tlačidla */
+  color: white; /* Farba textu v tlačidle */
+  border: none; /* Odstránenie orámovania */
+  border-radius: 4px; /* Zaoblenie rohov */
+  cursor: pointer; /* Zmena kurzora na pointer pri najetí na tlačidlo */
+  font-size: 1rem; /* Veľkosť písma */
+  text-align: center; /* Zarovnanie textu na stred */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* Jemný tieň pre tlačidlá */
+  width: 100%; /* Tlačidlá vyplnia šírku svojho nadradeného kontajnera */
+  box-sizing: border-box; /* Pridávanie paddingu a bordera do šírky a výšky elementu */
+}
+
+.invite-button {
+    margin-bottom: 0;
+  }
+  
+  /* Odoberieme margin, ak je medzi tlačidlami žiadny ďalší obsah */
+  .create-group-button:last-child,
+  .invite-button:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* Štýl pre hover efekt tlačidiel */
+  .create-group-button:hover,
+  .invite-button:hover {
+    background-color: #0056b3; /* Tmavšia modrá pre hover stav */
+  }
+.modal-content {
+    max-height: 80vh; /* Ochrana pred prípadným pretečením */
+    overflow-y: auto; /* Povolenie scrollovania vnútri modálneho okna */
+}
+
+/* Styly pro kartu "not logged in" */
+.not-logged-in-card {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh; /* Minimální výška karty */
+  min-width: 65vh;
+  margin-top: 50px;
+  padding: 20px;
+  background-color: #f8f9fa; /* Barva pozadí */
+  border: 1px solid #ddd; /* Barva rámečku */
+  border-radius: 8px; /* Zaoblené rohy */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Stín karty */
+}
+
+.not-logged-in-content h2 {
+  margin-bottom: 10px; /* Mezera pod nadpisem */
+  color: #333; /* Barva textu */
+  text-align: center;
+}
+
+.not-logged-in-content p {
+  color: #666; /* Barva textu */
+  text-align: center;
+}
+
+.not-logged-in-content button {
+  display: block;
+  margin: 20px auto; /* Centrování tlačítka */
+  padding: 10px 20px;
+  font-size: 16px;
+  color: #fff;
+  background-color: #007bff; /* Barva pozadí */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s; /* Přechod pro efekt při najetí myši */
+}
+
+.not-logged-in-content button:hover {
+  background-color: #0056b3; /* Tmavší barva pozadí při najetí myši */
+}
