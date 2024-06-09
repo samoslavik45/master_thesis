@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { EditedKeyword } from './types'; // Upravte importy podľa vašich potrieb
+import { EditedKeyword } from './types'; 
 
 
 interface KeywordsModalProps {
   editedKeywords: EditedKeyword[];
   onConfirm: (editedKeywords: EditedKeyword[]) => void;
-  setKeywordsChanged: (changed: boolean) => void; // Pridávanie setteru pre sledovanie zmien
-  setShowKeywordsModal: (show: boolean) => void; // Pridávanie setteru pre zobrazenie/skrytie modálu
+  setKeywordsChanged: (changed: boolean) => void; 
+  setShowKeywordsModal: (show: boolean) => void; 
 }
 
 const KeywordsModalAdd: React.FC<KeywordsModalProps> = ({ editedKeywords, onConfirm, setKeywordsChanged, setShowKeywordsModal }) => {
@@ -21,35 +21,35 @@ const KeywordsModalAdd: React.FC<KeywordsModalProps> = ({ editedKeywords, onConf
     const newKeywords = [...localEditedKeywords];
     newKeywords[index].value = value;
     setLocalEditedKeywords(newKeywords);
-    setKeywordsChanged(true);  // Zaznamenajte zmenu
+    setKeywordsChanged(true);  
   };
 
   const handleCheckboxChange = (index: number) => {
     const newKeywords = [...localEditedKeywords];
     newKeywords[index].selected = !newKeywords[index].selected;
     setLocalEditedKeywords(newKeywords);
-    setKeywordsChanged(true);  // Zaznamenajte zmenu
+    setKeywordsChanged(true);  
   };
   
 
   const handleAddKeyword = () => {
     const newKeyword = { id: '', value: '', selected: true };
     setLocalEditedKeywords([...localEditedKeywords, newKeyword]);
-    setKeywordsChanged(true);  // Zaznamenajte zmenu
+    setKeywordsChanged(true);  
   };
   
   const handleSubmit = () => {
     const selectedKeywords = localEditedKeywords.filter(keyword => keyword.selected);
     onConfirm(selectedKeywords);
     setShowKeywordsModal(false);
-    setKeywordsChanged(true); // Mark keywords as changed only after confirmation
+    setKeywordsChanged(true); 
   };
 
   return (
     <div className="keywords-modal">
       <form onSubmit={(e) => e.preventDefault()}>
         {localEditedKeywords.map((keyword, index) => (
-          <div key={index}> {/* Odporúčam použiť index ako key iba ak sa prvky nebudú reordenovať */}
+          <div key={index}> {}
             <input
               type="checkbox"
               checked={keyword.selected}

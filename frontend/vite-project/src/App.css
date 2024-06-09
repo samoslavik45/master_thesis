@@ -1,64 +1,61 @@
-/* Základný layout aplikácie */
+
 #root {
   margin: 0 auto;
 }
 .container {
-  width: 100%; /* Adjust the width as necessary */
+  width: 100%; 
   max-height: 80%;
   display: flex;
-  flex-direction: column; /* Články pod sebou */
+  flex-direction: column; 
   align-items: center;
   justify-content: center;
 }
 
-/* Nastavuje Navbar na vrch stránky s pevnou pozíciou vpravo */
+
 .navbar {
-  height: 7vh; /* Výška navigačného panela je 10% z celkovej výšky viewportu */
+  height: 7vh; 
   position: fixed;
   top: 0;
   left: 0;
   z-index: 1030;
 }
-/* Pridáva margin zľava pre nápis React-Bootstrap */
+
 .navbar-brand {
-  margin-left: 20px; /* Upravte hodnotu podľa potreby */
+  margin-left: 20px; 
 }
 
 
-/* Zarovnáva obsah Navbaru doprava */
 a.nav-link{
   color: red;
 }
 
 
-/* Upravuje Navbar Collapse pre zobrazenie obsahu vpravo */
+
 .navbar-collapse {
   justify-content: flex-end;
 }
 
-/* Centruje vyhľadávací panel v strede obrazovky pod navbarom */
-/* App.css alebo akýkoľvek relevantný CSS súbor */
+
 .search-panel {
-  width: 100%; /* Roztiahne komponent na celú dostupnú šírku */
-  max-width: 600px; /* Maximálna šírka, môžete prispôsobiť podľa potreby */
+  width: 100%; 
+  max-width: 600px; 
   height: 5vh;
   top: 50%;
   left: 50%;
   display: flex;
   justify-content: center;
-  margin-top: 10px;
+  margin-top: 5px;
 }
 
 
-/* Upravuje štýly pre vyhľadávací input a tlačidlo */
+
 .search-panel .form-control, .search-panel .btn-outline-success {
   margin: 0 5px;
 }
 
-/* Responzívne úpravy pre menšie obrazovky */
 @media (max-width: 992px) {
   .navbar-collapse {
-    justify-content: center; /* Centruje obsah navbaru na menších obrazovkách */
+    justify-content: center; 
   }
 
   .nav-links, .search-panel {
@@ -85,76 +82,74 @@ footer {
 }
 .articles-list-container {
   display: grid;
-  flex-wrap: wrap; /* umožní článkom prejsť na ďalší riadok ak nie je dostatok miesta */
-  justify-content: flex-start; /* zarovná články na začiatok */
-  align-items: stretch; /* Stretch cards to fill the container height */
-  max-height: 68vh; /* Maximálna výška kontajnera, vh - percento z výšky viewportu */
+  flex-wrap: wrap; 
+  justify-content: flex-start; 
+  align-items: stretch; 
+  max-height: 63vh; 
   overflow-y: auto;
   width: 100%;
-  margin-top: 20px; /* Centruje kontajner a pridáva vonkajší okraj*/
+  margin-top: 10px; 
   margin-bottom: 5vh;
 }
 
 .intro-text {
-  margin-top: 10vh; /* Uistite sa, že intro-text začína pod navigačným panelom */
+  margin-top: 10vh; 
   text-align: center;
 }
 
 .article {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Adds a slight shadow around each card */
-  width: 100%; /* Nastaví šírku každej karty na 100% šírky kontajnera */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+  width: 100%; 
   min-width: 100%;
-  margin: 0 auto; /* Centruje kartu v kontajneri */
-  display: flex; /* Použije flexbox na rozloženie obsahu */
-  flex-direction: column; /* Deti komponentu .article idú pod seba */
+  margin: 0 auto; 
+  display: flex; 
+  flex-direction: column; 
 }
 
 html, body {
   height: 100%;
-  overflow: hidden; /* Zabránenie scrollovanie na celom webe */
+  overflow: hidden; 
 
 }
 
 .btn-custom {
-  min-width: 120px;  /* Prípadne iná hodnota, ktorá vyhovuje veľkosti tlačidiel */
-  margin-right: 8px; /* Prípadne iná hodnota pre margin */
+  min-width: 120px;  
+  margin-right: 8px; 
 }
 .btn-custom:last-child {
   margin-right: 0;
 }
 
-/* Zvýraznenie nadpisu článku */
 .card .article-title {
-  font-size: 1.25rem; /* Zväčšenie písma pre nadpis */
-  font-weight: bold; /* Tučné písmo pre lepšiu viditeľnosť */
-  margin-bottom: 0.5rem; /* Pridanie spodného okraja */
-  color: #007bff; /* Modrá farba, prispôsobte podľa témy */
-  text-align: center; /* Zarovnanie textu na stred */
-  display: block; /* Zmení inline prvok na blokový, aby zaujal celú šírku */
-  width: 100%; /* Zabezpečí, že element zaujme celú šírku kontajnera */
+  font-size: 1.25rem; 
+  font-weight: bold; 
+  margin-bottom: 0.5rem; 
+  color: #007bff; 
+  text-align: center; 
+  display: block; 
+  width: 100%; 
 }
 
-/* Úprava podnadpisov pre autora a kategóriu */
+
 .card .article-meta {
-  font-size: 0.9rem; /* Menšie písmo pre meta informácie */
-  color: #6c757d; /* Svetlosivá farba pre menej dôležité informácie */
-  align-self: flex-start; /* Zabezpečuje, že element bude zarovnaný na začiatok flex kontajnera */
-  text-align: left; /* Zarovnanie textu vľavo */
+  font-size: 0.9rem; 
+  color: #6c757d; 
+  align-self: flex-start; 
+  text-align: left; 
 }
 
-/* Menší okraj pre oddeľovacie čiary a viac priestoru */
 .card .article-divider {
   border-top: 1px solid #b9adad;
-  margin: 1rem 0; /* Vertikálny priestor pred a po čiare */
+  margin: 1rem 0;
   width: 100%;
 }
 
 .card-content {
-  position: relative; /* Makes it a reference for absolute positioning of children */
+  position: relative; 
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Zarovnáva prvky vľavo */
-  width: 100%; /* Zabezpečí, že element zaujme celú šírku kontajnera */
+  align-items: flex-start; 
+  width: 100%; 
 }
 
 .like-group-button {
@@ -167,7 +162,7 @@ html, body {
 .card-body {
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* Pushes the .card-buttons to the bottom */
+  justify-content: space-between; 
 }
 
 .card-buttons{
@@ -176,10 +171,11 @@ html, body {
   margin-left: 33%;
 }
 
-/* Scrollovateľný dropdown menu pre skupiny */
+
 .dropdown-menu {
-  max-height: 150px; /* Maximalna výška, nad ktorou sa aktivuje scroll */
-  overflow-y: auto; /* Povolenie vertikálneho scrollovania */
-  overflow-x: hidden; /* Skrytie horizontálneho scrollovania */
+  max-height: 150px; 
+  overflow-y: auto; 
+  overflow-x: hidden; 
 }
+
 

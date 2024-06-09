@@ -27,11 +27,11 @@ interface LoginProps {
     console.log(data);
 
     if (response.ok) {
-      const token = data.access; // Upravte podľa kľúča použitého serverom
+      const token = data.access; 
       if (token) {
           setIsLoggedIn(true);
           localStorage.setItem('accessToken', token);
-          console.log(`Bearer ${token}`); // Log token po uložení
+          console.log(`Bearer ${token}`); 
           setMessage("Login successful.");
           setTimeout(() => {
             navigate('/');
@@ -56,7 +56,7 @@ interface LoginProps {
                 <input type="password" className='form-control' placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <button type="submit" className="btn btn-primary">Login</button>
-            <div>{message && <p className='mt-3'>{message}</p>} </div> {/* Show error message if login failed */}
+            <div>{message && <p className='mt-3'>{message}</p>} </div> {}
         </form>
     </div>
   );

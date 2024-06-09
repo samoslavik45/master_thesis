@@ -1,28 +1,26 @@
 import React, { useState } from 'react';
-import { Article, Category } from './types'; // Upravte cestu podľa vášho projektu
-import { Button, Card, Dropdown } from 'react-bootstrap'; // Import Bootstrap Button a Card
+import { Article, Category } from './types'; 
+import { Button, Card, Dropdown } from 'react-bootstrap'; 
 import axios from 'axios';
 import fileDownload from 'js-file-download';
-import { FaHeart } from 'react-icons/fa'; // Ikona srdca pre tlačidlo like, potrebné pridať do projektu cez npm
+import { FaHeart } from 'react-icons/fa'; 
 import Swal from 'sweetalert2';
 
 
 
-// Definícia typov pre props komponentu
+
 interface ArticlesListProps {
   articles: Article[];
-  groups: Array<{ id: number; name: string }>; // Pridajte typ pre vaše skupiny
-  categories: Category[]; // Pridajte typ pre vaše kategórie
-  isLoggedIn: boolean; // Pridaný nový prop
+  groups: Array<{ id: number; name: string }>; 
+  categories: Category[]; 
+  isLoggedIn: boolean; 
 }
 
 const handlePDFDownload = (pathToFile: string) => {
-  // Rozdělení cesty k souboru pro získání samotného názvu souboru
   const filename = pathToFile.split('/').pop() || 'defaultName.pdf';
   axios.get(`http://localhost:8000/media/${pathToFile}`, {
         responseType: 'blob',
     }).then(res => {
-        // Použití extrahovaného názvu souboru pro název staženého souboru
         fileDownload(res.data, filename);
         console.log("názov súboru" + pathToFile)
     }).catch(err => {
@@ -63,10 +61,10 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
         : [...currentExpandedIds, articleId]
     );
   };
-  console.log('Prijaté kategórie v ArticlesList:', categories); // Log prijatých kategórií
+  console.log('Prijaté kategórie v ArticlesList:', categories); 
   
   const handleLike = async (articleId: number) => {
-    const token = localStorage.getItem('accessToken'); // Získanie tokenu z local storage
+    const token = localStorage.getItem('accessToken'); 
     if (token) {
       try {
         const response = await fetch(`http://localhost:8000/api/articles/like/${articleId}/`, {
@@ -119,7 +117,7 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
       }
   
       const data = await response.json();
-      console.log(data.detail); // Server by mal vrátiť nejakú správu o úspechu
+      console.log(data.detail); 
       Swal.fire({
         title: 'Success!',
         text: `Article liked successfully as ${data.groupName || 'your group'}!`,
@@ -158,12 +156,12 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   };
   
 
-  console.log('Loaded articles:', articles); // Kontrolný log pre zobrazenie načítaných článkov
+  console.log('Loaded articles:', articles); 
   
   return (
     <div className="articles-list-container">
       {articles && articles.map((article: Article) => {
-        // Logujeme kategóriu aktuálne spracúvaného článku
+
         console.log('Processing article with category:', article.category);
   
         return (
@@ -179,7 +177,7 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
                       </div>
                     {expandedArticleIds.includes(article.id) && (
                     <>
-                      <div className="article-divider"></div> {/* Nový element pre vizuálnu oddelenie */}
+                      <div className="article-divider"></div> {}
                       <Card.Text>Keywords: {article.keywords.join(', ')}</Card.Text>
                       <Card.Text>Description: {article.content.substring(0, 500)}...</Card.Text>
                       <Button variant="info" className="btn-sm" onClick={() => showTags(article.id)}>Show Tags</Button>

@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import CreateGroupModal from './CreateGroupModal'; 
+import { useState, useEffect } from 'react';
 import GroupDetail from './GroupDetail';
-import GroupInvitesModal from './GroupInvitesModal';
 import './Groups.css';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
@@ -23,16 +21,14 @@ interface Invite {
 const Groups = () => {
     const [groups, setGroups] = useState<Group[]>([]);
     const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-    const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
     const [newGroupName, setNewGroupName] = useState<string>('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [isInvitesModalOpen, setIsInvitesModalOpen] = useState(false);
     const [invites, setInvites] = useState<Invite[]>([]);
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); // Stav pre prihlásenie
-    const navigate = useNavigate(); // Hook useNavigate() pro navigaci
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); 
+    const navigate = useNavigate(); 
 
     const redirectToLogin = () => {
-      navigate('/login'); // Přesměrování na /login
+      navigate('/login'); 
     };
 
     const checkTokenValidity = () => {
@@ -40,37 +36,34 @@ const Groups = () => {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const expiry = new Date(payload.exp * 1000);
-        return expiry > new Date(); // porovnáva s aktuálnym časom
+        return expiry > new Date(); 
       }
       return false;
     };
     
     useEffect(() => {
-      // Kontrola pri načítaní stránky
       const tokenIsValid = checkTokenValidity();
       if (!tokenIsValid) {
-        setIsLoggedIn(false); // aktualizujeme stav na ne-prihlásený
+        setIsLoggedIn(false); 
       }
       if (tokenIsValid){
         setIsLoggedIn(true);
       }
-    }, []); // Prázdny dependency array zabezpečí spustenie len raz pri načítaní
+    }, []); 
 
     useEffect(() => {
       const intervalId = setInterval(() => {
-        // Táto funkcia by mala vrátiť `true` alebo `false`
         const tokenIsValid = checkTokenValidity(); 
         if (!tokenIsValid) {
-          clearInterval(intervalId); // zastavíme periodickú kontrolu, ak je token neplatný
-          setIsLoggedIn(false); // aktualizujeme stav na ne-prihlásený
+          clearInterval(intervalId); 
+          setIsLoggedIn(false); 
         }
-      }, 30000); // kontrola každú minútu
+      }, 30000); 
     
-      // keď sa komponent odstráni alebo keď sa zmení dependency array
       return () => {
-        clearInterval(intervalId); // vycistíme interval, aby nedošlo k memory leak
+        clearInterval(intervalId); 
       };
-    }, []); // prázdne dependency array zabezpečí, že interval začne po prvom renderovaní komponentu
+    }, []); 
     
 
 
@@ -156,8 +149,8 @@ const Groups = () => {
             text: data.message,
             icon: 'success'
           });
-          fetchGroups(); // To ensure the group list is updated
-          fetchInvites(); // To update the invites list
+          fetchGroups(); 
+          fetchInvites(); 
         } catch (error) {
           Swal.fire({
             title: 'Error',
@@ -197,7 +190,7 @@ const Groups = () => {
             text: data.message,
             icon: 'success'
           });
-          fetchInvites(); // To update the invites list
+          fetchInvites();
         } catch (error) {
           Swal.fire({
             title: 'Error',
@@ -214,10 +207,16 @@ const Groups = () => {
       }
     };
       
-      useEffect(() => {
-        fetchInvites();
-        fetchGroups();
-      }, []);
+    useEffect(() => {
+      fetchInvites();
+      fetchGroups();
+    }, []);
+
+    useEffect(() => {
+      if (groups.length > 0) {
+        setSelectedGroupId(groups[0].id);
+      }
+    }, [groups]);
 
     const handleCreateGroup = async (newGroupName: string) => {
         const token = localStorage.getItem('accessToken');
@@ -288,9 +287,16 @@ const Groups = () => {
                   </div>
                 ))}
               </div>
-              {selectedGroupId ? (
-                <GroupDetail groupId={selectedGroupId} onBack={() => setSelectedGroupId(null)} updateGroups={fetchGroups} />
-              ) : null}
+              {selectedGroupId !== null && (
+                  <GroupDetail groupId={selectedGroupId} onBack={() => setSelectedGroupId(null)} updateGroups={fetchGroups} />
+                )}
+                {selectedGroupId == null && (
+                  <div className="no-groups-message-container">
+                  <div className="no-groups-message">
+                    <p>You are not part of any group.</p>
+                  </div>
+                </div>
+                )}
               <div className="group-actions-top">
                 <button onClick={handleOpenCreateGroupModal} className="create-group-button">
                   Create new group
@@ -299,13 +305,6 @@ const Groups = () => {
                   Show invites
                 </button>
               </div>
-              <GroupInvitesModal
-                isOpen={isInvitesModalOpen}
-                onClose={() => setIsInvitesModalOpen(false)}
-                invites={invites}
-                onAccept={handleAcceptInvite}
-                onReject={handleRejectInvite}
-              />
             </div>
           ) : (
             <div className="not-logged-in-card">
@@ -320,9 +319,8 @@ const Groups = () => {
           )}
         </>
       );
-      
-      
-      
+
+    
 }
 
 export default Groups;

@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import InviteButton from './InviteButton'; // Ujistěte se, že tento import odkazuje na váš InviteButton komponent
+import InviteButton from './InviteButton'; 
 import './GroupDetail.css';
-import TagsModal from './TagsModal';
-import AddTagModal from './AddTagModal';
 import Swal from 'sweetalert2';
-import Groups from './Groups';
 
 interface Group {
     id: number;
@@ -31,7 +28,7 @@ interface Article {
 interface GroupDetailProps {
   groupId: number;
   onBack: () => void;
-  updateGroups: () => void; // Pridanie typu pre novú prop
+  updateGroups: () => void; 
 }
 
 const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups }) => {
@@ -39,13 +36,7 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
   const [articles, setArticles] = useState<Article[]>([]);
   const [currentUser, setCurrentUser] = useState<number | null>(null); 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showTagsModal, setShowTagsModal] = useState(false);
-  const [currentArticleTags, setCurrentArticleTags] = useState<{
-    publicTags: string[];
-    userTags: string[];
-  }>({ publicTags: [], userTags: [] });
-  const [currentArticleId, setCurrentArticleId] = useState<number | null>(null);
-  const [showAddTagModal, setShowAddTagModal] = useState<boolean>(false);
+
   
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -136,10 +127,10 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
       `,
       showConfirmButton: false,
       preConfirm: () => {
-        // Logika pre tlačidlo OK by mala byť tu, ale z dôvodu custom implementácie ju presúvame do didOpen
+
       },
       didOpen: () => {
-        // OK button handler
+
         const confirmButton = Swal.getPopup()?.querySelector('#swal2-confirm') as HTMLElement;
         confirmButton.onclick = () => {
           const tagName = (Swal.getPopup()?.querySelector('#tagName') as HTMLInputElement)?.value;
@@ -152,7 +143,7 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
           }
         };
   
-        // Cancel button handler
+
         const cancelButton = Swal.getPopup()?.querySelector('#swal2-cancel') as HTMLElement;
         cancelButton.onclick = () => {
           Swal.close();
@@ -210,8 +201,18 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
   
       const data = await response.json();
       console.log(data.message); 
+      Swal.fire(
+        'Tag Added!',
+        'The tag has been successfully added.',
+        'success'
+      );
     } catch (error) {
       console.error('Error:', error);
+      Swal.fire(
+        'Error!',
+        'Failed to add tag to the article.',
+        'error'
+      )
     }
   };
 
@@ -328,8 +329,8 @@ const handleLeaveGroup = async () => {
         }
 
         Swal.fire('Left!', 'You have left the group.', 'success');
-        updateGroups(); // Aktualizujte zoznam skupín po odchode
-        onBack(); // Vráťte sa späť na zoznam skupín
+        updateGroups(); 
+        onBack(); 
       } catch (error) {
         console.error('Error leaving the group:', error);
         Swal.fire('Error!', 'Something went wrong!', 'error');
@@ -338,7 +339,6 @@ const handleLeaveGroup = async () => {
   });
 };
 
-// Umiestnite tento kód na koniec vašej komponenty, pred return statement
 
 const handleDeleteGroup = async () => {
   Swal.fire({
@@ -371,8 +371,8 @@ const handleDeleteGroup = async () => {
         }
 
         Swal.fire('Deleted!', 'The group has been deleted.', 'success');
-        updateGroups(); // Aktualizujte skupiny v komponente Groups
-        onBack(); // Presmerovanie na predchádzajúcu stránku alebo hlavnú stránku skupín
+        updateGroups(); 
+        onBack(); 
     
       } catch (error) {
         console.error('Error deleting the group:', error);
@@ -438,7 +438,7 @@ const handleExportBibtex = async () => {
             {articles.map((article) => (
               <li key={article.id} className='article-item'>
                 {article.title.length > 60
-                  ? `${article.title.substring(0, 70)}...`
+                  ? `${article.title.substring(0, 60)}...`
                   : article.title}
               <div className="button-group">
                 <button onClick={() => handleShowTags(article.id)} className='btn btn-info btn-sm'>Show Tags </button>
@@ -459,8 +459,7 @@ const handleExportBibtex = async () => {
       </div>
       <div className='group-detail-actions'>
         <div className="group-detail-actions-left">
-          {group && currentUser === group.admin.id && <InviteButton groupId={groupId} />} {/* Toto tlačidlo sa zobrazí len adminovi */}
-          <button className="btn-info" onClick={onBack}>Back to groups</button>
+          {group && currentUser === group.admin.id && <InviteButton groupId={groupId} />} {}
           <button className="btn btn-success" onClick={handleExportBibtex}>Export BibTeX of All Articles</button>
         </div>
         <div className="group-detail-actions-right">
@@ -471,17 +470,6 @@ const handleExportBibtex = async () => {
           )}
         </div>
       </div>
-      <AddTagModal
-        show={showAddTagModal}
-        onClose={() => setShowAddTagModal(false)}
-        articleId={currentArticleId}
-        onAddTag={handleAddTag}
-      />
-      <TagsModal
-        show={showTagsModal}
-        tags={currentArticleTags}
-        onClose={() => setShowTagsModal(false)}
-      />
     </div>
   );
 };

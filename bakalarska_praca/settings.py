@@ -151,9 +151,8 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=20),  # Životnosť access tokenu
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # Životnosť refresh tokenu
-    'ROTATE_REFRESH_TOKENS': True,  # Ak je True, pri každej výmene tokenu sa vytvorí nový refresh token
-    'BLACKLIST_AFTER_ROTATION': True,  # Ak je True, staré refresh tokeny sa po výmene zablokujú
-    # Tu môžete pridať ďalšie nastavenia podľa potreby
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=300),  
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  
+    'ROTATE_REFRESH_TOKENS': True,  
+    'BLACKLIST_AFTER_ROTATION': True,  
 }

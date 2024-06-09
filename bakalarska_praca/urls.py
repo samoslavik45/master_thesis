@@ -59,5 +59,7 @@ urlpatterns = [
     path('api/create/keyword/', views.create_keyword, name='create_keyword'),
     path('api/groups/<int:group_id>/leave_group/', views.leave_group, name='leave_group'),
     path('api/groups/<int:group_id>/export_bibtex/', views.export_bibtex, name='export_bibtex'),
+    path('api/articles/by_category/<int:category_id>/', views.ArticlesByCategory.as_view(), name='articles-by-category'),
+
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,9 +1,9 @@
 export interface Article {
     id: number;
     title: string;
-    authors: string[]; // Ak backend posiela pole mien autorov ako reťazce
+    authors: string[]; 
     category: number | string| Category;
-    categories: Category[]; // Pridané pre podporu viacerých kategórií
+    categories: Category[]; 
     keywords: string[];
     content: string;
     pdf_file: string;
@@ -13,17 +13,18 @@ export interface Article {
   }
 
   export interface Category {
-    id: number; // alebo number
+    id: number; 
     name: string;
+    description: string;
   }
   
   export interface Tag {
-    id: string; // alebo number
+    id: string; 
     name: string;
   }
   
   export interface Keyword {
-    id: string; // alebo number
+    id: string; 
     name: string;
   }
   export interface EditedKeyword {

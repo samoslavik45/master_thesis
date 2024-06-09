@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Article, Category, EditedKeyword } from './types'; // Upravte importy podľa vašich potrieb
+import { Article, Category, EditedKeyword } from './types'; 
 import './EditArticleModal.css';
 import KeywordsModal from './KeywordsModal';
 import Swal from 'sweetalert2';
@@ -16,27 +16,28 @@ interface EditArticleModalProps {
     categories: Category[];
     onClose: () => void;
     onDelete: (articleId: number) => void;
-    onArticleUpdated: () => void; // Pridanie nového prop
+    onArticleUpdated: () => void; 
 }
 
 const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, categories, onClose, onDelete, onArticleUpdated }) => {
-  console.log('Modal show state:', show);  // Toto vám ukáže, či je modal aktívny
-  console.log('Received article data:', article);  // Toto zobrazí, aké dáta článku boli prijaté
-  const initialAuthors = article.authors.join(', ');  // Pridanie tejto časti
+  console.log('Modal show state:', show); 
+  console.log('Received article data:', article);  
+  const initialAuthors = article.authors.join(', ');  
   const [formData, setFormData] = useState({
         id: article.id,
         title: article.title,
         content: article.content,
-        author_name: initialAuthors,  // Pridané pre manipuláciu s autorovými menami ako s jedným reťazcom
-        keywords: article.keywords instanceof Array ? article.keywords : [], // Uistite sa, že keywords je pole
-        category: article.category instanceof Object ? article.category.id : article.category, // Ak je category objekt, použije ID
+        author_name: initialAuthors,  
+        keywords: article.keywords instanceof Array ? article.keywords : [], 
+        category: article.category instanceof Object ? article.category.id : article.category, 
         tag: article.tag,
       });
   const [showKeywordsModal, setShowKeywordsModal] = useState(false);
   const [keywordData, setKeywordData] = useState<Keyword[]>([]);
   const [editedKeywords, setEditedKeywords] = useState<EditedKeyword[]>([]);
-  const [keywordsChanged, setKeywordsChanged] = useState(false);  // Nový stav indikujúci zmeny
+  const [keywordsChanged, setKeywordsChanged] = useState(false);  
   const [searchTerm, setSearchTerm] = useState('');
+  const [keywordsConfirmed, setKeywordsConfirmed] = useState(false);  
   const filteredCategories = categories.filter(category => 
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -48,20 +49,28 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
       const selectedKeywordsIds = selectedKeywords.filter(kw => kw.selected).map(kw => kw.id);
       setFormData({ ...formData, keywords: selectedKeywordsIds });
       await updateArticleKeywords(selectedKeywords);
-      setKeywordsChanged(false);  // Reset po potvrdení
+      setKeywordsChanged(false);  
+      setKeywordsConfirmed(true);  
     }
   };
+  const renderEditKeywordsButton = () => {
+    if (!keywordsConfirmed) {
+      return <button type="button" onClick={() => handleEditKeywordsClick()}>Edit Keywords</button>;
+    }
+    return null;  
+  };
+
 
 
   const handleEditKeywordsClick = () => {
     const keywordsToEdit: EditedKeyword[] = formData.keywords.map(id => ({
       id: id,
-      value: keywordMap[id] || 'Názov neznámy', // Predvolený text, ak názov neexistuje v mapovaní
+      value: keywordMap[id] || 'Názov neznámy', 
       selected: true,
     }));
-    setEditedKeywords(keywordsToEdit); // Nastavíme nový štát s mapovanými kľúčovými slovami
-    setShowKeywordsModal(true); // A otvoríme modal
-    setKeywordsChanged(false);  // Zatiaľ žiadna zmena
+    setEditedKeywords(keywordsToEdit); 
+    setShowKeywordsModal(true); 
+    setKeywordsChanged(false);  
   };
 
 
@@ -80,12 +89,12 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
 
   useEffect(() => {
     if (article) {
-      const initialAuthors = article.authors.join(', ');  // Pridanie tejto časti    
+      const initialAuthors = article.authors.join(', ');  
       setFormData({
         id: article.id,
         title: article.title,
         content: article.content,
-        author_name: initialAuthors,  // Pridané pre manipuláciu s autorovými menami ako s jedným reťazcom
+        author_name: initialAuthors,  
         category: article.category instanceof Object ? article.category.id : article.category,
         keywords: article.keywords instanceof Array ? article.keywords : [],
         tag: article.tag,
@@ -101,7 +110,10 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = event.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData(prevFormData => ({
+      ...prevFormData,
+      [name]: value
+    }));
   }; 
 
   async function updateArticle(articleData: Partial<Article>) {
@@ -116,15 +128,14 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
       });
   
       if (response.ok) {
-        const updatedArticle = await response.json();
         Swal.fire({
           title: 'Success!',
           text: 'Your article has been updated successfully.',
           icon: 'success',
           confirmButtonText: 'OK'
         }).then(() => {
-          onArticleUpdated(); // Update your articles view or state
-          onClose(); // Close modal or clear form
+          onArticleUpdated(); 
+          onClose(); 
         });
       } else {
         throw new Error('Failed to update article');
@@ -161,7 +172,7 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
   
     const updatedKeywordIds = [...existingSelectedIds, ...newKeywordIds];
     
-    // Aktualizácia stavu formulára s novými ID kľúčových slov, bez odoslania požiadavky na server
+
     setFormData(prevFormData => ({
       ...prevFormData,
       keywords: updatedKeywordIds
@@ -173,20 +184,20 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
     event.preventDefault();
     const authorsArray = formData.author_name.split(',').map(name => name.trim());
   
-    // Pripravíme údaje článku na odoslanie
+
     const articleData = {
       title: formData.title,
       content: formData.content,
       authors: authorsArray,
       category_id: formData.category,
       tag: formData.tag,
-      keywords: formData.keywords // Toto už obsahuje aktualizované ID kľúčových slov
+      keywords: formData.keywords 
     };
   
-    // Kontrola, či boli zmenené kľúčové slová a aktualizácia článku
+
     if (keywordsChanged) {
-      await updateArticleKeywords(editedKeywords); // Ensure any new keywords are created and article is update
-      setKeywordsChanged(false); // Resetujeme príznak zmeny
+      await updateArticleKeywords(editedKeywords); 
+      setKeywordsChanged(false); 
     }
     await updateArticle(articleData);
 
@@ -244,8 +255,8 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
                     type="text"
                     id="author_name"
                     name="author_name"
-                    value={formData.author_name} // Použitie join s čiarkou pre spojenie mien do jedného reťazca
-                    onChange={handleChange}  // Pridanie handleru pre zmenu
+                    value={formData.author_name} 
+                    onChange={handleChange}  
                     className="form-control"
                 />
             </div>
@@ -259,7 +270,7 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
                     />
             <div className="form-group">
               <label>Category:</label>
-              <select name="" value={formData.category} onChange={handleChange} className="form-control" size={5}>
+              <select name="category" value={formData.category} onChange={handleChange} className="form-control" size={5}>
                 {filteredCategories.map(category => (
                   <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
@@ -273,7 +284,7 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({ show, article, cate
               setShowKeywordsModal={setShowKeywordsModal}
             />
             )}
-            <button type="button" onClick={() => handleEditKeywordsClick()}>Edit Keywords</button>
+            {renderEditKeywordsButton()}
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>

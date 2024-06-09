@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'; // Pridaný useEffect
+import React, { useState, useEffect } from 'react'; 
 import {useLocation } from 'react-router-dom';
 import {Form, FormControl, Button } from 'react-bootstrap';
 import SearchComponent from './SearchComponent';
 import axios from 'axios';
 import ArticlesList from './ArticlesList';
 import { Article, Category } from './types'; 
+import CategorySearch from './CategorySearch'; 
 
 
 interface MainContentProps {
@@ -21,6 +22,8 @@ interface MainContentProps {
     const [isLoggedIn, setIsLoggedInState] = useState<boolean>(false); 
     const [categories, setCategories] = useState<Category[]>([]);
     const [isArticleListExpanded, setIsArticleListExpanded] = useState(false);
+    const [keywords, setKeywords] = useState([]);
+
 
 
     let location = useLocation();
@@ -61,22 +64,20 @@ interface MainContentProps {
             throw new Error('Problém pri načítaní kategórií.');
           }
           const data = await response.json();
-          console.log('Načítané kategórie:', data); // Log načítaných kategórií
-          setCategories(data); // Predpokladá, že API vráti pole kategórií
+          console.log('Načítané kategórie:', data); 
+          setCategories(data); 
         } catch (error) {
           console.error(error);
         }
       };
       fetchCategories();
     }
-
     }, []);
 
     
   
     const handleSearch = async (query: string) => {
       const accessToken = localStorage.getItem('accessToken');
-      // Pripravte objekt s konfiguráciou pre axios len ak máme platný accessToken
       const config = accessToken ? {
         headers: { Authorization: `Bearer ${accessToken}` }
       } : {};
@@ -88,7 +89,22 @@ interface MainContentProps {
       }
     };
     
+const handleCategorySearch = async (categoryId: number) => {
+  try {
+    const response = await axios.get(`http://localhost:8000/api/articles/by_category/${categoryId}/`);
+    if (response.status === 200) {
+      console.log("Articles loaded for category:", categoryId, response.data);
+      setArticles(response.data);  
+    } else {
+      console.error("Failed to fetch articles for category:", categoryId, response);
+    }
+  } catch (error) {
+    console.error("Error fetching articles by category:", categoryId, error);
+  }
+};
+
     
+  
   
     return (
       <>
@@ -99,6 +115,7 @@ interface MainContentProps {
               <p>Find the best articles on various topics right here.</p>
             </div>
             <SearchComponent onSearch={handleSearch} />
+            <CategorySearch onCategorySelect={handleCategorySearch} />
             <ArticlesList articles={articles} isLoggedIn={isLoggedIn} groups={groups} categories={categories} />
           </>
         )}

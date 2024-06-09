@@ -15,12 +15,12 @@ const AbstractModal: React.FC<AbstractModalProps> = ({ abstract, onConfirm, onCl
   };
 
   return (
-    <div className="modal" style={{ display: 'block' }}> {/* Upravte štýly podľa vašich potrieb */}
+    <div className="modal" style={{ display: 'block' }}> {}
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">Edit Abstract</h5>
-            <button type="button" className="close" onClick={onClose}> {/* Zmena tu */}
+            <button type="button" className="close" onClick={onClose}> {}
                 <span aria-hidden="true">&times;</span>
             </button>
           </div>

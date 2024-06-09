@@ -28,36 +28,31 @@ class AuthorsField(serializers.Field):
 class ArticleSerializer(serializers.ModelSerializer):
     categories = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), many=True)
     authors = AuthorsField()
-    #tag = serializers.SlugRelatedField(slug_field='name', read_only=True, many=False, allow_null=True)
     keywords = serializers.PrimaryKeyRelatedField(queryset=Keyword.objects.all(), many=True, required=False)
-    #keywords = serializers.PrimaryKeyRelatedField(queryset=Keyword.objects.all(), many=True)
     class Meta:
         model = Article
         fields = ['id', 'title', 'content', 'pdf_file', 'added_by', 'authors', 'created_at', 'categories', 'keywords']
         read_only_fields = ['added_by']  # added_by bude nastavené automaticky
 
     def create(self, validated_data):
-        # Vytvorenie článku s automatickým nastavením added_by
         validated_data['added_by'] = self.context['request'].user
         return super().create(validated_data)
     
     def update(self, instance, validated_data):
-        # Aktualizácia autorov
         authors_data = validated_data.pop('authors', None)
         if authors_data is not None:
             instance.authors.set(authors_data)
 
-        # Aktualizácia kategórií, ak sú poskytnuté
+        print("validate_data:", validated_data)
         categories_data = validated_data.pop('categories', None)
         if categories_data is not None:
+            print("ideme meniť:", categories_data)
             instance.categories.set(categories_data)
 
-        # Aktualizácia kľúčových slov, ak sú poskytnuté
         keywords_data = validated_data.pop('keywords', None)
         if keywords_data is not None:
             instance.keywords.set(keywords_data)
 
-        # Aktualizácia ostatných polí
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 

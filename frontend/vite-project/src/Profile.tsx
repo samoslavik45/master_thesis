@@ -1,45 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './Profile.css'; 
-import { Article, Category } from './types'; // Upravte cestu podľa vášho projektu
-import AddArticleModal from './AddArticleModal'; // Predpokladáme, že tento komponent ste už vytvorili
-import AddTagModal from './AddTagModal';
-import TagsModal from './TagsModal';
+import { Article, Category } from './types'; 
+import AddArticleModal from './AddArticleModal'; 
 import Swal from 'sweetalert2';
 import EditArticleModal from './EditArticleModal';
 import { useNavigate } from 'react-router-dom';
 
 
 
-// Definovanie typu pre užívateľa
 interface Profile {
     first_name: string;
     last_name: string;
     email: string;
-    // pridajte ďalšie vlastnosti podľa potreby
+    
 }
 
-interface Tags {
-  publicTags: string[];
-  userTags: string[];
-}
 
 const Profile = () => {
-    const [user, setUser] = useState<Profile | null>(null); // Použitie typu User[]
-    const [userArticles, setUserArticles] = useState<Article[]>([]); // Přidáme stav pro články uživatele
+    const [user, setUser] = useState<Profile | null>(null); 
+    const [userArticles, setUserArticles] = useState<Article[]>([]); 
     const [likedArticles, setLikedArticles] = useState<Article[]>([]);
     const [showAddArticleModal, setShowAddArticleModal] = useState<boolean>(false);
-    const [showTagModal, setShowTagModal] = useState<boolean>(false);
-    const [currentArticleId, setCurrentArticleId] = useState<number | null>(null);
-    const [tagsToShow, setTagsToShow] = useState<{ publicTags: string[]; userTags: string[]; }>({ publicTags: [], userTags: [] });
-    const [showTagsModal, setShowTagsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState<boolean>(false);
     const [currentArticleToEdit, setCurrentArticleToEdit] = useState<Article | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); // Stav pre prihlásenie
-    const navigate = useNavigate(); // Hook useNavigate() pro navigaci
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); 
+    const navigate = useNavigate(); 
 
     const redirectToLogin = () => {
-      navigate('/login'); // Přesměrování na /login
+      navigate('/login'); 
     };
 
     const checkTokenValidity = () => {
@@ -47,7 +36,7 @@ const Profile = () => {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const expiry = new Date(payload.exp * 1000);
-        return expiry > new Date(); // porovnáme s aktuálnym časom
+        return expiry > new Date(); 
       }
       return false;
     };
@@ -55,7 +44,7 @@ const Profile = () => {
     useEffect(() => {
       const tokenIsValid = checkTokenValidity();
       if (!tokenIsValid) {
-        setIsLoggedIn(false); // aktualizujeme stav na ne-prihlásený
+        setIsLoggedIn(false); 
       }
       if (tokenIsValid){
         setIsLoggedIn(true);
@@ -66,12 +55,12 @@ const Profile = () => {
       const intervalId = setInterval(() => {
         const tokenIsValid = checkTokenValidity();
         if (!tokenIsValid) {
-          clearInterval(intervalId); // zastavíme interval, keď token už nie je platný
-          setIsLoggedIn(false); // aktualizujeme stav na ne-prihlásený
+          clearInterval(intervalId); 
+          setIsLoggedIn(false); 
         }
-      }, 30000); // kontrola každých 30 sekúnd
+      }, 30000); 
     
-      return () => clearInterval(intervalId); // vyčistenie intervalu pri unmountingu
+      return () => clearInterval(intervalId); 
     }, []);
 
 
@@ -82,7 +71,7 @@ const Profile = () => {
           fetch('http://localhost:8000/main/current_user/', {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${token}`, // Použitie tokenu v požiadavke
+              'Authorization': `Bearer ${token}`, 
               'Content-Type': 'application/json'
             },
           })
@@ -123,7 +112,7 @@ const Profile = () => {
         }
       };
       fetchLikedArticles();
-    }, []); // Pridáme do dependency array, aby sme to spustili len po načítaní komponentu
+    }, []); 
 
     useEffect(() => {
       const fetchCategories = async () => {
@@ -161,7 +150,6 @@ const Profile = () => {
           throw new Error('Failed to delete the article');
         }
     
-        // Odstrániť článok zo stavu
         setUserArticles(prevArticles => prevArticles.filter(article => article.id !== articleId));
         setShowEditModal(false);
       } catch (error) {
@@ -228,7 +216,7 @@ const Profile = () => {
                   throw new Error('Network response was not ok');
               }
               const articles = await response.json();
-              console.log('Loaded articles:', articles); // Kontrolný log pre zobrazenie načítaných článkov
+              console.log('Loaded articles:', articles);
               setUserArticles(articles);
           } catch (error) {
               console.error('Error fetching user articles:', error);
@@ -264,10 +252,10 @@ const Profile = () => {
         `,
         showConfirmButton: false,
         preConfirm: () => {
-          // Logika pre tlačidlo OK by mala byť tu, ale z dôvodu custom implementácie ju presúvame do didOpen
+          
         },
         didOpen: () => {
-          // OK button handler
+          
           const confirmButton = Swal.getPopup()?.querySelector('#swal2-confirm') as HTMLElement;
           confirmButton.onclick = () => {
             const tagName = (Swal.getPopup()?.querySelector('#tagName') as HTMLInputElement)?.value;
@@ -280,7 +268,7 @@ const Profile = () => {
             }
           };
     
-          // Cancel button handler
+          
           const cancelButton = Swal.getPopup()?.querySelector('#swal2-cancel') as HTMLElement;
           cancelButton.onclick = () => {
             Swal.close();
@@ -303,7 +291,7 @@ const Profile = () => {
           }
           const { publicTags, userTags } = await response.json();
     
-          // Zobrazenie tagov pomocou SweetAlert2
+          
           Swal.fire({
             title: 'Article Tags',
             html: `
@@ -341,9 +329,20 @@ const Profile = () => {
         }
     
         const data = await response.json();
-        console.log(data.message); 
+        console.log(data.message);
+
+        Swal.fire(
+          'Tag Added!',
+          'The tag has been successfully added.',
+          'success'
+        );
       } catch (error) {
         console.error('Error:', error);
+        Swal.fire(
+          'Error!',
+          'Failed to add tag to the article.',
+          'error'
+        )
       }
     };
 
@@ -407,16 +406,10 @@ const Profile = () => {
                           categories={categories}
                           onClose={() => setShowEditModal(false)}
                           onDelete={handleDeleteArticle}
-                          onArticleUpdated={handleArticleUpdated} // Pridanie prop
+                          onArticleUpdated={handleArticleUpdated} 
                       />
                   )}
-                  <AddTagModal
-                    show={showTagModal}
-                    onClose={() => setShowTagModal(false)}
-                    articleId={currentArticleId}
-                    onAddTag={handleAddTag}
-                  />
-                  <AddArticleModal show={showAddArticleModal} onClose={handleCloseModal} />
+                    <AddArticleModal show={showAddArticleModal} onClose={handleCloseModal} onArticleAdded={fetchUserArticles} />
                 </div>
               </div>
            </div>

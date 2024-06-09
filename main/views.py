@@ -36,20 +36,6 @@ from django.db import IntegrityError
 
 User = get_user_model()
 
-def say_hello(request):
-    x = calculate()
-    y = 2
-    return render(request, 'hello.html', {'name': 'Ahoj'})
-
-def calculate():
-    x = 1
-    y = 2
-    return x
-
-def simple_api(request):
-    data = {'message': 'Hello from Django!'}
-    return JsonResponse(data)
-
 @api_view(['POST'])
 def login_view(request):
     username = request.data.get('username')
@@ -57,7 +43,7 @@ def login_view(request):
     user = authenticate(request, username=username, password=password)
     if user is not None:
         login(request, user)
-        refresh = RefreshToken.for_user(user)  # Vytvoriť tokeny pre používateľa
+        refresh = RefreshToken.for_user(user)
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
@@ -72,7 +58,7 @@ class CurrentUserView(APIView):
     def get(self, request):
         user = request.user
         return Response({
-            "id": user.id,  # Pridanie ID používateľa do odpovede
+            "id": user.id, 
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email
@@ -87,7 +73,6 @@ def register_user(request):
     first_name = request.data.get('first_name')
     last_name = request.data.get('last_name')
     
-    # Tu môžete pridať validáciu
 
     user = User.objects.create_user(username, email, password, first_name=first_name, last_name=last_name)
     return Response({'detail': 'Registrácia úspešná.'})
@@ -98,15 +83,13 @@ from django.db.models import Q
 def search_articles(request):
     query = request.query_params.get('q', '')
 
-    # Základné filtrovanie článkov podľa všeobecných kritérií vyhľadávania
     base_query = (
         Q(title__icontains=query) |
-        Q(authors__name__icontains=query) |  # Zmena z author_name na authors__name
+        Q(authors__name__icontains=query) |  
         Q(keywords__keyword__icontains=query) |
         Q(userarticletag__tag__name__icontains=query, userarticletag__is_public=True)
     )
 
-    # Ak je užívateľ prihlásený, pridaj filtrovanie pre jeho privátne tagy
     if request.user.is_authenticated:
         private_tags_query = Q(userarticletag__tag__name__icontains=query, userarticletag__user=request.user, userarticletag__is_public=False)
         articles_query = Article.objects.filter(base_query | private_tags_query)
@@ -156,7 +139,7 @@ def generate_bibtex(request):
         article = Article.objects.get(pdf_file=filename)
         metadata = ArticleMetadata.objects.get(article=article)
 
-        authors = format_authors(metadata.authors.all())  # Získanie všetkých autorov
+        authors = format_authors(metadata.authors.all()) 
 
         bibtex_template = f"""
         @article{{{metadata.article.id},
@@ -180,10 +163,17 @@ def generate_bibtex(request):
 def delete_article(request, article_id):
     try:
         article = Article.objects.get(id=article_id, added_by=request.user)
+        if article.pdf_file:
+            pdf_path = os.path.join(settings.MEDIA_ROOT, article.pdf_file.name)
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)  
+                
         article.delete()
-        return JsonResponse({'message': 'Článek byl úspěšně smazán.'}, status=200)
+        return JsonResponse({'message': 'Článek byl úspěšně smazán spolu s jeho PDF souborem.'}, status=200)
     except Article.DoesNotExist:
         return JsonResponse({'error': 'Článek nebyl nalezen.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': 'Chyba pri mazaní článku alebo súboru: {}'.format(str(e))}, status=500)
     
 @api_view(['GET'])
 def user_articles(request):
@@ -213,7 +203,6 @@ def extract_year_from_creation_date(creation_date):
 def create_article(request):
     print("Received data:", request.data)
 
-    # Získať PDF súbor a načítať ho
     pdf_file = request.FILES.get('pdf_file')
     if not pdf_file:
         return Response({'error': 'No PDF file provided.'}, status=400)
@@ -222,7 +211,6 @@ def create_article(request):
     if file_extension.lower() != '.pdf':
         return Response({'error': 'Invalid file type. Only PDF files are allowed.'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Načítať metadata z PDF
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
     metadata = doc.metadata
     print(metadata)
@@ -240,19 +228,17 @@ def create_article(request):
         print("pdf_file.name", pdf_file.name)
         if article.pdf_file and os.path.basename(article.pdf_file.name) == pdf_file.name:
             print("som tu")
-            # Porovnáme metadáta
             existing_metadata = ArticleMetadata.objects.get(article=article)
             print(existing_metadata)
             print("existing_metadata.title:", existing_metadata.title)
             print("metadata.get('title', ''):", metadata.get('title', ''))
-            print("existing_metadata.author:", existing_metadata.author)
+            print("existing_metadata.author:", existing_metadata.authors)
             print("metadata.get('author_name', '')", metadata.get('author_name', ''))
-            if existing_metadata and (existing_metadata.title == metadata.get('title', '') or existing_metadata.author == metadata.get('author', '')):
+            if existing_metadata and (existing_metadata.title == metadata.get('title', '') or existing_metadata.authors == metadata.get('author', '')):
                 return Response({'error': 'This PDF file already exists in the system.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Extrahovať hodnoty z metadát, ak nie sú poskytnuté v požiadavke
     title = request.data.get('title', metadata.get('title', ''))
-    authors_names = request.data.getlist('authors')  # Dostanete zoznam mien autorov
+    authors_names = request.data.getlist('authors')  
     author = request.data.get('author_name', metadata.get('author', ''))
     subject = metadata.get('subject', None)
     creator = metadata.get('creator', None)
@@ -260,7 +246,6 @@ def create_article(request):
     keywords = request.data.get('keywords_text', '')
     keywords_list = [keyword.strip() for keyword in keywords.split(',') if keyword.strip()]
 
-    # Vytvoriť článok pomocou poskytnutých údajov
     serializer = ArticleSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         with transaction.atomic():
@@ -277,17 +262,15 @@ def create_article(request):
             for name in authors_names:
                 author, created = Author.objects.get_or_create(name=name)
                 article.authors.add(author)
-                metadata_instance.authors.add(author)  # Pridať autora k metadátam
+                metadata_instance.authors.add(author)  
 
-
-            # Pridať alebo vytvoriť kľúčové slová a asociovat ich s článkom
             for keyword_str in keywords_list:
                 new_keyword = Keyword.objects.create(keyword=keyword_str)
                 article.keywords.add(new_keyword)
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
-        print(serializer.errors)  # Pomocné pre ladenie
+        print(serializer.errors) 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -306,8 +289,8 @@ def get_keywords(request):
 @api_view(['GET'])
 def all_articles(request):
     if request.method == 'GET':
-        articles = Article.objects.all()  # Získanie všetkých článkov
-        serializer = ArticleSerializer(articles, many=True)  # Serializácia článkov
+        articles = Article.objects.all() 
+        serializer = ArticleSerializer(articles, many=True)  
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 from rest_framework.decorators import api_view, parser_classes
@@ -330,13 +313,19 @@ def extract_keywords_from_pdf(request):
     author = metadata.get('author', '')
     metadata_keywords = doc.metadata.get('keywords', '')
 
+    if len(doc) > 0:  
+        first_page_text = doc[0].get_text()  
+        print("First page text:", first_page_text)
+
     full_text = ""
     for page in doc:
         full_text += page.get_text()
 
     abstract_patterns = [
-        r"(?si)\babstract\b\s*(.*?)(?:\n\s*\b(?:Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)\b|$)",
-        r"(?si)\babstract\b\s*(.*?)(?=\n\s*\b(?:1\.|2\.|3\.|Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)\b)"
+        r"(?si)\babstract\b\s*(.*?)(?:\n\s*(?:\d+\.\s*)?(?:Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)|\n{2,})",
+        r"(?si)\babstract\b\s*([^\n]+(?:\n(?!\n)[^\n]+)*)" 
+        #r"(?si)\babstract\b\s*(.*?)(?:\n\s*\b(?:Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)\b|$)",
+        #r"(?si)\babstract\b\s*(.*?)(?=\n\s*\b(?:1\.|2\.|3\.|Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)\b)"
     ]
 
 
@@ -391,7 +380,6 @@ def like_article(request, article_id):
 def liked_articles(request):
     user = request.user
     liked_articles = ArticleLike.objects.filter(user=user).select_related('article').all()
-    # Serializujeme články, ktoré používateľ likol
     serializer = ArticleSerializer([like.article for like in liked_articles], many=True, context={'request': request})
     return Response(serializer.data)
 
@@ -411,7 +399,7 @@ def unlike_article(request, article_id):
 @permission_classes([IsAuthenticated])
 def list_groups(request):
     user = request.user
-    groups = user.custom_groups.all()  # Použite správny názov vzťahu
+    groups = user.custom_groups.all()  
     serializer = GroupSerializer(groups, many=True)
     return Response(serializer.data)
 
@@ -420,8 +408,8 @@ def list_groups(request):
 def create_group(request):
     serializer = GroupSerializer(data=request.data)
     if serializer.is_valid():
-        group = serializer.save(admin=request.user)  # Pridajte používateľa ako admina skupiny
-        group.members.add(request.user)  # Pridajte používateľa aj ako člena
+        group = serializer.save(admin=request.user)  
+        group.members.add(request.user) 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -482,7 +470,6 @@ def send_group_invite(request, group_id):
     except User.DoesNotExist:
         return Response({'error': 'User not found.'}, status=404)
     
-    # Kontrola, či sa pozvaný užívateľ už nenachádza v skupine
     if invited_user in group.members.all():
         return Response({'error': 'User is already a member of the group.'}, status=400)
     
@@ -497,8 +484,6 @@ def send_group_invite(request, group_id):
 @permission_classes([IsAuthenticated])
 def list_invites(request):
     user = request.user
-    # Získanie pozvánok, kde invited_user je aktuálny užívateľ a pozvánka nebola ešte akceptovaná
-    # Toto predpokladá, že neexistuje explicitné pole pre odmietnutie a že neakceptovaná pozvánka je stále "pending"
     invites = GroupInvite.objects.filter(invited_user=user, accepted=False)
     serializer = GroupInviteSerializer(invites, many=True)
     return Response(serializer.data)
@@ -511,7 +496,7 @@ def accept_invite(request, invite_id):
         invite = GroupInvite.objects.get(id=invite_id, invited_user=request.user)
         group = invite.group
         group.members.add(invite.invited_user)
-        invite.delete()  # Odstránenie pozvánky po prijatí
+        invite.delete()  
         return Response({'message': 'Pozvánka bola prijatá a používateľ bol pridaný do skupiny.'}, status=status.HTTP_200_OK)
     except GroupInvite.DoesNotExist:
         return Response({'error': 'Pozvánka nenájdená.'}, status=status.HTTP_404_NOT_FOUND)
@@ -522,7 +507,7 @@ def accept_invite(request, invite_id):
 def reject_invite(request, invite_id):
     try:
         invite = GroupInvite.objects.get(id=invite_id, invited_user=request.user)
-        invite.delete()  # Odstránenie pozvánky po odmietnutí
+        invite.delete() 
         return Response({'message': 'Pozvánka bola odmietnutá.'}, status=200)
     except GroupInvite.DoesNotExist:
         return Response({'error': 'Pozvánka nenájdená.'}, status=404)
@@ -549,23 +534,22 @@ def add_tag_to_article(request):
 def get_tags_for_article(request, article_id):
     article = get_object_or_404(Article, id=article_id)
 
-    # Získajte všetky verejné tagy pre daný článok
+
     public_tags_query = Tag.objects.filter(
         userarticletag__article=article,
         userarticletag__is_public=True
     ).distinct()
 
-    # Získajte všetky tagy pridané prihláseným používateľom pre daný článok (verejné aj súkromné)
+
     user_tags_query = Tag.objects.filter(
         userarticletag__article=article,
         userarticletag__user=request.user
     ).distinct()
 
-    # Konvertujte querysety na zoznamy názvov tagov
+
     public_tags_list = list(public_tags_query.values_list('name', flat=True))
     user_tags_list = list(user_tags_query.values_list('name', flat=True))
 
-    # Vráťte zoznamy tagov
     return JsonResponse({'publicTags': public_tags_list, 'userTags': user_tags_list})
 
 @api_view(['GET'])
@@ -584,20 +568,20 @@ def get_publictags(request, article_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def unlike_article_as_group(request, group_id, article_id):
-    # Get the group and article instances
+
     try:
         group = Group.objects.get(pk=group_id, admin=request.user)
         article = Article.objects.get(pk=article_id)
     except (Group.DoesNotExist, Article.DoesNotExist) as e:
         return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-    # Check if the article is liked by the group
+
     try:
         group_article_like = GroupArticleLike.objects.get(group=group, article=article)
     except GroupArticleLike.DoesNotExist:
         return Response({'detail': 'Article not liked by group.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # If the article is liked by the group, unlike it
+
     group_article_like.delete()
     return Response({'detail': 'Article has been unliked by the group.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -612,21 +596,21 @@ def kick_member(request, group_id, member_id):
         return Response({'detail': 'Member not part of the group.'}, status=status.HTTP_404_NOT_FOUND)
     
     group.members.remove(member)
-    # Odstránenie všetkých nevybavených pozvánok tohto člena do skupiny
+
     GroupInvite.objects.filter(group=group, invited_user=member).delete()
     return Response({'detail': 'Member successfully kicked out of the group.'}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_group(request, group_id):
-    # Získajte skupinu na základe ID
+
     group = get_object_or_404(Group, id=group_id)
 
-    # Overte, či je prihlásený používateľ administrátorom skupiny
+
     if group.admin != request.user:
         return Response({'detail': 'Unauthorized. Only group admin can delete the group.'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Vymažte skupinu
+
     group.delete()
 
     return Response({'detail': 'Group successfully deleted.'}, status=status.HTTP_200_OK)
@@ -634,38 +618,42 @@ def delete_group(request, group_id):
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_article(request, article_id):
-    # Získanie článku podľa ID
+
     article = get_object_or_404(Article, pk=article_id)
 
-    # Skontrolujte, či má užívateľ oprávnenie na editáciu článku
+
     if article.added_by != request.user:
         return Response({"detail": "Nemáte oprávnenie upravovať tento článok."}, status=403)
 
-    # Aktualizácia článku pomocou sérializátora
-    serializer = ArticleSerializer(article, data=request.data, partial=True) # `partial=True` umožňuje čiastočnú aktualizáciu
+
+    if 'category_id' in request.data:
+        request.data['categories'] = [request.data.pop('category_id')]
+    print("dáta na zmenu: ", request.data)
+    serializer = ArticleSerializer(article, data=request.data, partial=True) 
     if serializer.is_valid():
         updated_article = serializer.save()
 
-        print(request.data)
+        print(update_article)
+
         author_names = request.data.get('authors', [])
         author_instances = []
         for name in author_names:
-            author, created = Author.objects.get_or_create(name=name.strip())  # Zabezpečí, aby boli vedľajšie medzery odstránené
+            author, created = Author.objects.get_or_create(name=name.strip())  
             author_instances.append(author)
 
         if hasattr(updated_article, 'metadata'):
             metadata = updated_article.metadata
-            metadata.authors.set(author_instances)  # Nastavenie nových autorov
+            metadata.authors.set(author_instances)  
             metadata.save()
         else:
             metadata = ArticleMetadata.objects.create(article=updated_article)
-            metadata.authors.set(author_instances)  # Nastavenie nových autorov
+            metadata.authors.set(author_instances)  
             metadata.save()
 
 
         keywords_ids = request.data.get('keywords', [])
         keywords_objects = Keyword.objects.filter(id__in=keywords_ids)
-        keywords_str = ', '.join([kw.keyword for kw in keywords_objects])  # Spojí kľúčové slová do jedného reťazca
+        keywords_str = ', '.join([kw.keyword for kw in keywords_objects]) 
 
         metadata_data = {
             'title': request.data.get('title'),
@@ -681,15 +669,15 @@ def update_article(request, article_id):
 
 
         if hasattr(updated_article, 'metadata'):
-            # Aktualizuje existujúce metadáta
+
             ArticleMetadata.objects.filter(article=updated_article).update(**metadata_data)
         else:
-            # Vytvorí nové metadáta, ak ešte nie sú priradené
+
             ArticleMetadata.objects.create(article=updated_article, **metadata_data)
 
         return Response(serializer.data)
     if not serializer.is_valid():
-        print(serializer.errors)  # Toto vám ukáže, kde je problém
+        print(serializer.errors)  
         return Response(serializer.errors, status=400)
 
     
@@ -705,12 +693,33 @@ class CategoryList(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+from django.conf import settings
+    
+class ArticlesByCategory(APIView):
+    """
+    View to return articles by category with category names and keyword names.
+    """
+    def get(self, request, category_id):
+        articles = Article.objects.filter(categories__id=category_id).prefetch_related('categories', 'keywords')
+        data = ArticleSerializer(articles, many=True).data
+
+
+        for article in data:
+            if article['pdf_file'].startswith('/media/'):
+                article['pdf_file'] = article['pdf_file'].replace('/media/', '', 1)
+
+            article['categories'] = [Category.objects.get(id=cat_id).name for cat_id in article['categories']]
+
+            article['keywords'] = [Keyword.objects.get(id=kw_id).keyword for kw_id in article['keywords']]
+
+        return Response(data, status=status.HTTP_200_OK)
 
     
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_keyword(request):
-    print("Received data:", request.data)  # Pridajte toto logovanie
+    print("Received data:", request.data)  
     serializer = KeywordSerializer(data=request.data)
     if serializer.is_valid():
         keyword = serializer.save()
@@ -723,11 +732,11 @@ def create_keyword(request):
 def leave_group(request, group_id):
     try:
         group = Group.objects.get(id=group_id)
-        # Overenie, či je užívateľ členom skupiny
+
         if request.user not in group.members.all():
             return JsonResponse({'message': 'You are not a member of this group.'}, status=403)
 
-        # Odstránenie užívateľa zo skupiny
+
         group.members.remove(request.user)
         group.save()
 
@@ -745,7 +754,7 @@ def export_bibtex(request, group_id):
         for group_like in group_likes:
             article = group_like.article
             metadata = ArticleMetadata.objects.get(article=article)
-            authors = format_authors(metadata.authors.all())  # Získanie všetkých autorov
+            authors = format_authors(metadata.authors.all())  
 
             bibtex_entry = f"""
             @article{{{metadata.article.id},
@@ -764,3 +773,4 @@ def export_bibtex(request, group_id):
         return HttpResponse("Group not found.", status=404)
     except ArticleMetadata.DoesNotExist:
         return HttpResponse("Metadata not found for one or more articles.", status=404)
+

@@ -14,7 +14,6 @@ const Register = () => {
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      // Tu môžete pridať validáciu
   
       const response = await fetch('http://localhost:8000/api/register/', {
           method: 'POST',

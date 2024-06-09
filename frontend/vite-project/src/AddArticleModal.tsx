@@ -1,16 +1,18 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
 import './AddArticleModal.css'
-import { Category } from './types'; // Aktualizujte cestu podľa skutočnej štruktúry vašich súborov
+import { Category } from './types'; 
 import KeywordsModalAdd from './KeywordsModalAdd';
-import AbstractModal from './AbstractModal'; // Predpokladáme, že ste už vytvorili tento komponent
+import AbstractModal from './AbstractModal'; 
 import Swal from 'sweetalert2';
-import { FaPlus } from 'react-icons/fa'; // Toto musíte nainstalovat react-icons
+import { FaPlus } from 'react-icons/fa'; 
 
 
 interface AddArticleModalProps {
   show: boolean;
   onClose: () => void;
+  onArticleAdded?: () => void; 
 }
+
 
 interface FormData {
   title: string;
@@ -23,14 +25,14 @@ interface CategoryDetails {
   description: string;
 }
 
-
-const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
-  const [formData, setFormData] = useState<FormData>({
+const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose, onArticleAdded  }) => {
+  const initialFormData = {
     title: '',
     content: '',
     author_name: '',
-  });
+  };
 
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   const [file, setFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -54,13 +56,10 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Načítanie kategórií
         const categoriesResponse = await fetch('http://localhost:8000/api/categories/');
         const categoriesData = await categoriesResponse.json();
         setCategories(categoriesData);
 
-
-        // Načítanie kľúčových slov
         const keywordsResponse = await fetch('http://localhost:8000/api/keywords/');
         const keywordsData = await keywordsResponse.json();
         setSelectedKeywords(keywordsData);
@@ -70,12 +69,24 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
     };
 
     fetchData();
-  }, []); // Prázdna závislosť znamená, že tento efekt sa vykoná len pri prvom renderovaní
+  }, []); 
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
+
+  const handleClose = () => {
+
+    setFormData(initialFormData);
+    setFile(null);
+    setPdfUploaded(false);
+    setSelectedCategories([]);
+    setSelectedKeywords([]);
+    setKeywordsText('');
+    onClose();  
+  };
+
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -112,7 +123,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
       
       } catch (error) {
         console.error('Error extracting keywords:', error);
-        setKeywordsText(''); // V prípade chyby nechať pole prázdne
+        setKeywordsText(''); 
       }
     }
   };
@@ -148,10 +159,20 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
         });
         const result = await response.json();
         if (response.ok) {
-          setCategories([...categories, result]); // Assuming the server returns the new category
-          alert('Category added successfully!');
+          setCategories([...categories, result]); 
+          Swal.fire({
+            title: 'Success!',
+            text: 'New category added successfully!',
+            icon: 'success',
+            confirmButtonText: 'OK'
+          });
         } else {
-          throw new Error('Failed to add category');
+          Swal.fire({
+            title: 'Error!',
+            text: 'Failed to add new category.',
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
         }
       } catch (error: any) {
         console.error('Failed to add category:', error);
@@ -159,12 +180,10 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
       }
     }
   };
-  
-  
-  
+
   const handleKeywordsConfirm = (confirmedKeywords: string[]) => {
     setKeywordsText(confirmedKeywords.join(', '));
-    setShowKeywordsModal(false); // Skryje modálne okno
+    setShowKeywordsModal(false); 
   };
 
   const handleCategoryChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -176,15 +195,13 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // TODO: Add validation
-    const authorsArray = formData.author_name.split(',').map(name => name.trim());  // Rozdelenie a trimovanie mien
+    const authorsArray = formData.author_name.split(',').map(name => name.trim());  
     const formDataToSend = new FormData();
     formDataToSend.append('title', formData.title);
     formDataToSend.append('content', formData.content);
     authorsArray.forEach(author => {
-      formDataToSend.append('authors', author);  // Pridávanie mien autorov
+      formDataToSend.append('authors', author);  
     });
-    // Pre každú kategóriu, tag, a kľúčové slovo, použite append v samostatnom volaní
     selectedCategories.forEach(category => {
         formDataToSend.append('categories', category);
     });
@@ -235,10 +252,19 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
         text: 'Article has been successfully posted.',
       }).then((result) => {
         if (result.isConfirmed || result.isDismissed) {
-          onClose(); // Zatvoriť modál, obnoviť dáta atď.
+          setFormData(initialFormData);  
+          setFile(null);
+          setPdfUploaded(false);
+          setSelectedCategories([]);
+          setSelectedKeywords([]);
+          setKeywordsText('');
+          onClose();  
+          if (onArticleAdded) {
+            onArticleAdded();
+          }
         }
       });
-  
+
     } catch (error) {
       console.error('Error:', error);
       Swal.fire({
@@ -256,13 +282,13 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
 
   return (
     <>
-      <div className="modal-backdrop show" onClick={onClose}></div>
+      <div className="modal-backdrop show" onClick={handleClose}></div>
       <div className="modal show">
         <div className="modal-content">
           <form onSubmit={handleSubmit}>
             <div className="modal-header">
               <h5 className="modal-title">Add new article</h5>
-              <button type="button" className="close" onClick={onClose} aria-label="Close">
+              <button type="button" className="close" onClick={handleClose} aria-label="Close">
                 <span aria-hidden="true">&times;</span>
               </button>
             </div>
@@ -320,7 +346,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
 
 
 
-                  {/* Pridanie select pre kľúčové slová */}
+                  {}
                   <label htmlFor="keywords_text">Keywords:</label>
                   {showKeywordsModal && (
                     <KeywordsModalAdd
@@ -332,7 +358,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose }) => {
                 )}     
               </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
+              <button type="button" className="btn btn-secondary mb5" onClick={handleClose}>Close</button>
               <button type="submit" className="btn btn-primary mb5">Post article</button>
             </div>
           </form>
