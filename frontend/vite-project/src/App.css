@@ -1,0 +1,181 @@
+
+#root {
+  margin: 0 auto;
+}
+.container {
+  width: 100%; 
+  max-height: 80%;
+  display: flex;
+  flex-direction: column; 
+  align-items: center;
+  justify-content: center;
+}
+
+
+.navbar {
+  height: 7vh; 
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1030;
+}
+
+.navbar-brand {
+  margin-left: 20px; 
+}
+
+
+a.nav-link{
+  color: red;
+}
+
+
+
+.navbar-collapse {
+  justify-content: flex-end;
+}
+
+
+.search-panel {
+  width: 100%; 
+  max-width: 600px; 
+  height: 5vh;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  justify-content: center;
+  margin-top: 5px;
+}
+
+
+
+.search-panel .form-control, .search-panel .btn-outline-success {
+  margin: 0 5px;
+}
+
+@media (max-width: 992px) {
+  .navbar-collapse {
+    justify-content: center; 
+  }
+
+  .nav-links, .search-panel {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+footer {
+  height: 3vh;
+  background-color: #f8f9fa;
+  text-align: center;
+  right: 3%;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  font-size: 14px;
+}
+.articles-list-container {
+  display: grid;
+  flex-wrap: wrap; 
+  justify-content: flex-start; 
+  align-items: stretch; 
+  max-height: 63vh; 
+  overflow-y: auto;
+  width: 100%;
+  margin-top: 10px; 
+  margin-bottom: 5vh;
+}
+
+.intro-text {
+  margin-top: 10vh; 
+  text-align: center;
+}
+
+.article {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+  width: 100%; 
+  min-width: 100%;
+  margin: 0 auto; 
+  display: flex; 
+  flex-direction: column; 
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden; 
+
+}
+
+.btn-custom {
+  min-width: 120px;  
+  margin-right: 8px; 
+}
+.btn-custom:last-child {
+  margin-right: 0;
+}
+
+.card .article-title {
+  font-size: 1.25rem; 
+  font-weight: bold; 
+  margin-bottom: 0.5rem; 
+  color: #007bff; 
+  text-align: center; 
+  display: block; 
+  width: 100%; 
+}
+
+
+.card .article-meta {
+  font-size: 0.9rem; 
+  color: #6c757d; 
+  align-self: flex-start; 
+  text-align: left; 
+}
+
+.card .article-divider {
+  border-top: 1px solid #b9adad;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.card-content {
+  position: relative; 
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; 
+  width: 100%; 
+}
+
+.like-group-button {
+  display: flex;
+  position: absolute;
+  margin-top: 60px;
+  right: 0;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; 
+}
+
+.card-buttons{
+  display: flex;
+  justify-content: center;
+  margin-left: 33%;
+}
+
+
+.dropdown-menu {
+  max-height: 150px; 
+  overflow-y: auto; 
+  overflow-x: hidden; 
+}
+
+

@@ -1,0 +1,15 @@
+# Base image s Node
+FROM node:20
+
+WORKDIR /app
+
+# Najprv skopíruj package.json a nainštaluj deps
+COPY package*.json ./
+RUN npm install
+
+# Mountneš kód zvonka, takže COPY . . tu netreba
+# (uľahčí to vývoj, aby sa deps nepreinštalovávali stále)
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

@@ -1,0 +1,17 @@
+TODO
+use cases (najprv poznamky)
+django tutorial
+koncepty: framework, dependencies - third party software,  
+navrh databazy
+zohnat literaturu
+
+Literatura:
+Základy CMS a webových frameworkov:
+
+"Content Management Bible" od Boba Boiko - Táto kniha poskytuje komplexný prehľad o CMS, vrátane plánovania, analýzy a implementácie systémov.
+
+Literatúra o správe digitálnych knižníc a vedeckých dát:
+
+"Digital Libraries" od William Y. Arms - Táto kniha poskytuje prehľad o digitálnych knižniciach, čo je úzko spojené s vaším projektom.
+https://eng317hannah.wordpress.ncsu.edu/files/2020/01/Krug_Steve_Dont_make_me_think_revisited___a_cz-lib.org_.pdf
+
