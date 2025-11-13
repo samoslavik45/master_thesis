@@ -162,18 +162,47 @@ def generate_bibtex(request):
 @permission_classes([IsAuthenticated])
 def delete_article(request, article_id):
     try:
+        # 1️⃣ Nájdeme článok len ak patrí aktuálnemu používateľovi
         article = Article.objects.get(id=article_id, added_by=request.user)
+
+        # 2️⃣ Ak existuje PDF, vymažeme ho zo systému
         if article.pdf_file:
             pdf_path = os.path.join(settings.MEDIA_ROOT, article.pdf_file.name)
             if os.path.exists(pdf_path):
-                os.remove(pdf_path)  
-                
+                os.remove(pdf_path)
+
+        # 3️⃣ Uchováme si jeho keywords a authors pre neskoršiu kontrolu
+        keywords_to_check = list(article.keywords.all())
+        authors_to_check = list(article.authors.all())
+
+        # (ak máš aj UserArticleTag alebo GroupArticleLike, tie sa automaticky vymažú cez FK CASCADE)
+
+        # 4️⃣ Vymažeme samotný článok
         article.delete()
-        return JsonResponse({'message': 'Článek byl úspěšně smazán spolu s jeho PDF souborem.'}, status=200)
+
+        # 5️⃣ Skontrolujeme, ktoré keywords/autori už nikde nie sú použité
+        for kw in keywords_to_check:
+            if not kw.articles.exists():
+                kw.delete()
+
+        for author in authors_to_check:
+            if not author.authored_articles.exists():
+                author.delete()
+
+        # 6️⃣ Tagy — ak už nie sú nikde v UserArticleTag, tiež zmažeme
+        from main.models import Tag
+        for tag in Tag.objects.all():
+            if not tag.userarticletag_set.exists():
+                tag.delete()
+
+        return JsonResponse({'message': 'Článok a všetky nepoužívané väzby boli úspešne zmazané.'}, status=200)
+
     except Article.DoesNotExist:
-        return JsonResponse({'error': 'Článek nebyl nalezen.'}, status=404)
+        return JsonResponse({'error': 'Článok nebol nájdený alebo nepatrí prihlásenému používateľovi.'}, status=404)
+
     except Exception as e:
-        return JsonResponse({'error': 'Chyba pri mazaní článku alebo súboru: {}'.format(str(e))}, status=500)
+        return JsonResponse({'error': f'Chyba pri mazaní článku alebo väzieb: {str(e)}'}, status=500)
+
     
 @api_view(['GET'])
 def user_articles(request):
@@ -265,8 +294,9 @@ def create_article(request):
                 metadata_instance.authors.add(author)  
 
             for keyword_str in keywords_list:
-                new_keyword = Keyword.objects.create(keyword=keyword_str)
-                article.keywords.add(new_keyword)
+                keyword_clean = keyword_str.lower().strip()
+                keyword_obj, created = Keyword.objects.get_or_create(keyword=keyword_clean)
+                article.keywords.add(keyword_obj)
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:

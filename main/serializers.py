@@ -28,7 +28,7 @@ class AuthorsField(serializers.Field):
 class ArticleSerializer(serializers.ModelSerializer):
     categories = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), many=True)
     authors = AuthorsField()
-    keywords = serializers.PrimaryKeyRelatedField(queryset=Keyword.objects.all(), many=True, required=False)
+    keywords = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     class Meta:
         model = Article
         fields = ['id', 'title', 'content', 'pdf_file', 'added_by', 'authors', 'created_at', 'categories', 'keywords']
