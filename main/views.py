@@ -234,7 +234,7 @@ def create_article(request):
 
     pdf_file = request.FILES.get('pdf_file')
     if not pdf_file:
-        return Response({'error': 'No PDF file provided.'}, status=400)
+        return Response({'error': 'No PDF file provided .'}, status=400)
     
     file_name, file_extension = os.path.splitext(pdf_file.name)
     if file_extension.lower() != '.pdf':
