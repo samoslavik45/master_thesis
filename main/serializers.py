@@ -49,10 +49,6 @@ class ArticleSerializer(serializers.ModelSerializer):
             print("ideme meniť:", categories_data)
             instance.categories.set(categories_data)
 
-        keywords_data = validated_data.pop('keywords', None)
-        if keywords_data is not None:
-            instance.keywords.set(keywords_data)
-
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 

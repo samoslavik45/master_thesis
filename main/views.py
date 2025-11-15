@@ -182,8 +182,21 @@ def delete_article(request, article_id):
 
         # 5️⃣ Skontrolujeme, ktoré keywords/autori už nikde nie sú použité
         for kw in keywords_to_check:
-            if not kw.articles.exists():
-                kw.delete()
+
+            # všetky keywordy s rovnakým menom (case-insensitive)
+            dupes = Keyword.objects.filter(keyword__iexact=kw.keyword)
+
+            # ak hociktorý z týchto keyword objektov je ešte použitý → NEZMAZAŤ
+            still_used = False
+            for d in dupes:
+                if d.articles.exists():
+                    still_used = True
+                    break
+
+            # ak žiadny nie je použitý → zmaž všetky duplicity
+            if not still_used:
+                dupes.delete()
+
 
         for author in authors_to_check:
             if not author.authored_articles.exists():
@@ -648,67 +661,98 @@ def delete_group(request, group_id):
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_article(request, article_id):
-
     article = get_object_or_404(Article, pk=article_id)
-
 
     if article.added_by != request.user:
         return Response({"detail": "Nemáte oprávnenie upravovať tento článok."}, status=403)
 
-
+    # hack – backend očakáva categories cez categories=[]
     if 'category_id' in request.data:
         request.data['categories'] = [request.data.pop('category_id')]
-    print("dáta na zmenu: ", request.data)
-    serializer = ArticleSerializer(article, data=request.data, partial=True) 
-    if serializer.is_valid():
-        updated_article = serializer.save()
 
-        print(update_article)
+    # ULOŽ STARÉ KEYWORDY SKÔR, NEŽ SA NĚČO ZMENÍ
+    old_keywords = list(article.keywords.all())
 
-        author_names = request.data.get('authors', [])
-        author_instances = []
-        for name in author_names:
-            author, created = Author.objects.get_or_create(name=name.strip())  
-            author_instances.append(author)
-
-        if hasattr(updated_article, 'metadata'):
-            metadata = updated_article.metadata
-            metadata.authors.set(author_instances)  
-            metadata.save()
-        else:
-            metadata = ArticleMetadata.objects.create(article=updated_article)
-            metadata.authors.set(author_instances)  
-            metadata.save()
-
-
-        keywords_ids = request.data.get('keywords', [])
-        keywords_objects = Keyword.objects.filter(id__in=keywords_ids)
-        keywords_str = ', '.join([kw.keyword for kw in keywords_objects]) 
-
-        metadata_data = {
-            'title': request.data.get('title'),
-            'subject': request.data.get('subject'),
-            'creationDate': request.data.get('creationDate'),
-            'keywords': keywords_str,
-            'creator': request.data.get('creator'),
-            'doi': request.data.get('doi'),
-        }
-
-
-        metadata_data = {key: value for key, value in metadata_data.items() if value is not None}
-
-
-        if hasattr(updated_article, 'metadata'):
-
-            ArticleMetadata.objects.filter(article=updated_article).update(**metadata_data)
-        else:
-
-            ArticleMetadata.objects.create(article=updated_article, **metadata_data)
-
-        return Response(serializer.data)
+    serializer = ArticleSerializer(article, data=request.data, partial=True)
     if not serializer.is_valid():
-        print(serializer.errors)  
+        print(serializer.errors)
         return Response(serializer.errors, status=400)
+
+    updated_article = serializer.save()   # 🔥 TU UŽ JE ARTICLE UPDATE FINÁLNY
+
+    # -------------------------------------------------------
+    # AUTHORS
+    # -------------------------------------------------------
+    author_names = request.data.get('authors', [])
+    author_instances = []
+    for name in author_names:
+        cleaned = name.strip()
+        if cleaned:
+            author_obj, _ = Author.objects.get_or_create(name=cleaned)
+            author_instances.append(author_obj)
+
+    if hasattr(updated_article, "metadata"):
+        metadata = updated_article.metadata
+    else:
+        metadata = ArticleMetadata.objects.create(article=updated_article)
+
+    metadata.authors.set(author_instances)
+
+    # -------------------------------------------------------
+    # KEYWORDS – jednotná normalizácia + deduplikácia
+    # -------------------------------------------------------
+    keywords_text = request.data.get("keywords_text", "")
+
+    if isinstance(keywords_text, list):
+        keywords_text = ", ".join([str(x) for x in keywords_text])
+
+    raw_keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
+    normalized_keywords = [kw.lower() for kw in raw_keywords]
+
+    keyword_objs = []
+    for kw_norm in normalized_keywords:
+        existing = Keyword.objects.filter(keyword__iexact=kw_norm).first()
+        if existing:
+            keyword_objs.append(existing)
+        else:
+            new_kw = Keyword.objects.create(keyword=kw_norm)
+            keyword_objs.append(new_kw)
+
+    updated_article.keywords.set(keyword_objs)
+
+    metadata.keywords = ", ".join(raw_keywords)
+
+    # -------------------------------------------------------
+    # REMOVE UNUSED KEYWORDS AFTER EDIT
+    # -------------------------------------------------------
+
+    # zistíme keywordy po update
+    new_keywords = list(updated_article.keywords.all())
+
+    # keywordy, ktoré boli na článku predtým, ale už nie sú
+    removed_keywords = [kw for kw in old_keywords if kw not in new_keywords]
+
+    for kw in removed_keywords:
+        dupes = Keyword.objects.filter(keyword__iexact=kw.keyword)
+
+        used_somewhere = any(d.articles.exists() for d in dupes)
+
+        if not used_somewhere:
+            dupes.delete()
+
+    # -------------------------------------------------------
+    # Zvyšné metadata polia
+    # -------------------------------------------------------
+    for field in ["title", "subject", "creationDate", "creator", "doi"]:
+        if field in request.data:
+            setattr(metadata, field, request.data[field])
+
+    metadata.save()
+
+    return Response(serializer.data)
+
+
+
 
     
 class CategoryList(APIView):
@@ -749,12 +793,24 @@ class ArticlesByCategory(APIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_keyword(request):
-    print("Received data:", request.data)  
-    serializer = KeywordSerializer(data=request.data)
-    if serializer.is_valid():
-        keyword = serializer.save()
-        return Response({'id': keyword.id, 'keyword': keyword.keyword}, status=201)
-    return Response(serializer.errors, status=400)
+    raw_kw = request.data.get('keyword', '')
+
+    # 1) ošetri vstup
+    cleaned = raw_kw.strip().lower()
+    if not cleaned:
+        return Response({'error': 'Keyword cannot be empty.'}, status=400)
+
+    # 2) case-insensitive deduplikácia
+    existing = Keyword.objects.filter(keyword__iexact=cleaned).first()
+    if existing:
+        kw_obj = existing
+    else:
+        kw_obj = Keyword.objects.create(keyword=cleaned)
+
+    return Response(
+        {'id': kw_obj.id, 'keyword': kw_obj.keyword},
+        status=201
+    )
 
 
 @api_view(['DELETE'])

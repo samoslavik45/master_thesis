@@ -22,7 +22,7 @@ const Profile = () => {
     const [likedArticles, setLikedArticles] = useState<Article[]>([]);
     const [showAddArticleModal, setShowAddArticleModal] = useState<boolean>(false);
     const [showEditModal, setShowEditModal] = useState<boolean>(false);
-    const [currentArticleToEdit, setCurrentArticleToEdit] = useState<Article | null>(null);
+    const [currentArticleToEdit, setCurrentArticleToEdit] = useState<number | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); 
     const navigate = useNavigate(); 
@@ -42,98 +42,72 @@ const Profile = () => {
     };
 
     useEffect(() => {
-      const tokenIsValid = checkTokenValidity();
-      if (!tokenIsValid) {
-        setIsLoggedIn(false); 
-      }
-      if (tokenIsValid){
-        setIsLoggedIn(true);
-      }
-    }, []);
+      const token = localStorage.getItem("accessToken");
 
-    useEffect(() => {
-      const intervalId = setInterval(() => {
-        const tokenIsValid = checkTokenValidity();
-        if (!tokenIsValid) {
-          clearInterval(intervalId); 
-          setIsLoggedIn(false); 
-        }
-      }, 30000); 
-    
-      return () => clearInterval(intervalId); 
-    }, []);
-
-
-    useEffect(() => {
-      const fetchUser = async () => {
-      const token = localStorage.getItem('accessToken');    
-      if (token) {
-          fetch('http://localhost:8000/main/current_user/', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`, 
-              'Content-Type': 'application/json'
-            },
-          })
-            .then(response => response.json())
-            .then(data => {
-              setUser(data);
-            })
-            .catch(error => console.error('Error:', error));
-        } else {
-          console.log('No token found, user might not be logged in');
-        }
-      }
-      fetchUser();
-      }, []);
-
-    useEffect(() => {
-      fetchUserArticles();
-    }, []); 
-
-    useEffect(() => {
-      const fetchLikedArticles = async () => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          try {
-            const response = await fetch('http://localhost:8000/api/liked-articles/', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            if (!response.ok) {
-              throw new Error('Network response was not ok');
-            }
-            const articles = await response.json();
-            setLikedArticles(articles);
-          } catch (error) {
-            console.error('Error fetching liked articles:', error);
-          }
-        }
-      };
-      fetchLikedArticles();
-    }, []); 
-
-    useEffect(() => {
-      const fetchCategories = async () => {
+      // helper: check token validity
+      const isTokenValid = () => {
+        if (!token) return false;
         try {
-          const response = await fetch('http://localhost:8000/api/categories/', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            },
-          });
-          if (!response.ok) {
-            throw new Error('Failed to fetch categories');
-          }
-          const data = await response.json();
-          setCategories(data);
-        } catch (error) {
-          console.error('Error fetching categories:', error);
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          return payload.exp * 1000 > Date.now();
+        } catch {
+          return false;
         }
       };
-    
-      fetchCategories();
+
+      // 1) Token validity on mount
+      if (!isTokenValid()) {
+        setIsLoggedIn(false);
+        return; // no need to fetch anything else
+      }
+      setIsLoggedIn(true);
+
+      // 2) Fetch everything in parallel
+      const loadAll = async () => {
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
+
+        try {
+          const [userRes, articlesRes, likedRes, catRes] = await Promise.all([
+            fetch("http://localhost:8000/main/current_user/", { headers }),
+            fetch("http://localhost:8000/api/user-articles/", { headers }),
+            fetch("http://localhost:8000/api/liked-articles/", { headers }),
+            fetch("http://localhost:8000/api/categories/", { headers }),
+          ]);
+
+          const [userData, articlesData, likedData, categoriesData] =
+            await Promise.all([
+              userRes.json(),
+              articlesRes.json(),
+              likedRes.json(),
+              catRes.json(),
+            ]);
+
+          setUser(userData);
+          setUserArticles(articlesData);
+          setLikedArticles(likedData);
+          setCategories(categoriesData);
+        } catch (err) {
+          console.error("Error while loading profile:", err);
+          setIsLoggedIn(false);
+        }
+      };
+
+      loadAll();
+
+      // 3) Token checker interval
+      const intervalId = setInterval(() => {
+        if (!isTokenValid()) {
+          clearInterval(intervalId);
+          setIsLoggedIn(false);
+        }
+      }, 30000);
+
+      return () => clearInterval(intervalId);
     }, []);
+
     
     
     
@@ -347,7 +321,7 @@ const Profile = () => {
     };
 
     const handleEditClick = (article: Article) => {
-      setCurrentArticleToEdit(article);
+      setCurrentArticleToEdit(article.id);
       setShowEditModal(true);
     };
 
@@ -402,7 +376,7 @@ const Profile = () => {
                   {showEditModal && currentArticleToEdit && (
                       <EditArticleModal
                           show={showEditModal}
-                          article={currentArticleToEdit}
+                          article={userArticles.find(a => a.id === currentArticleToEdit)!}
                           categories={categories}
                           onClose={() => setShowEditModal(false)}
                           onDelete={handleDeleteArticle}
