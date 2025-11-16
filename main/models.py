@@ -28,7 +28,7 @@ class Tag(models.Model):
         return self.name
     
 class Keyword(models.Model):
-    keyword = models.CharField(max_length=100)
+    keyword = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
         return self.keyword
@@ -47,13 +47,16 @@ class Article(models.Model):
         return self.title
 
 class Category(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField()
 
 class ArticleLike(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='likes')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='liked_articles')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('article', 'user')
 
 class Group(models.Model):
     name = models.CharField(max_length=100)
@@ -76,6 +79,10 @@ class GroupInvite(models.Model):
     invited_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_invites')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_group_invites')
     accepted = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('group', 'invited_user')
+
 
 class UserArticleTag(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -100,7 +107,7 @@ class ArticleMetadata(models.Model):
         return f"Metadata for {self.article.title}"
     
 class Author(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return self.name
