@@ -111,3 +111,22 @@ class Author(models.Model):
 
     def __str__(self):
         return self.name
+
+class ArticleEmbedding(models.Model):
+    article = models.OneToOneField(Article, on_delete=models.CASCADE, related_name='embedding')
+    vector = models.JSONField()  # list of floats
+    model_name = models.CharField(max_length=100)  # e.g. 'tfidf-v1' or 'sbert-v1'
+    updated_at = models.DateTimeField(auto_now=True)
+
+class UserInteraction(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    article = models.ForeignKey(Article, on_delete=models.CASCADE)
+    # 1 = like, 2 = click_reco, 3 = dismiss_reco
+    kind = models.PositiveSmallIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class RecommendationCache(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    payload = models.JSONField()  # list of dicts {id: ..., score: ...}
+    algo = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
