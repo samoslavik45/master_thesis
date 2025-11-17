@@ -20,18 +20,21 @@ from django.contrib.auth.decorators import login_required
 from .serializers import ArticleSerializer
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
-from .models import Category, Tag, Keyword, GroupArticleLike, GroupInvite, UserArticleTag, ArticleMetadata
+from .models import Category, Tag, Keyword, GroupArticleLike, GroupInvite, UserArticleTag, ArticleMetadata, ArticleEmbedding
 from .serializers import CategorySerializer, TagSerializer, KeywordSerializer, GroupSerializer, GroupInviteSerializer
 import string
 import random
 import fitz  # PyMuPDF
 import re
 import sys
+import numpy as np
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import parser_classes
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db import IntegrityError
+from main.recommender.similarity import cosine_similarity
+
 
 
 User = get_user_model()
@@ -860,3 +863,43 @@ def export_bibtex(request, group_id):
     except ArticleMetadata.DoesNotExist:
         return HttpResponse("Metadata not found for one or more articles.", status=404)
 
+
+@api_view(['GET'])
+def similar_to_article(request, article_id):
+    """
+    Vráti najpodobnejšie články podľa TF-IDF embeddingov.
+    """
+    k = int(request.query_params.get('k', 5))  # default top 5 similar
+
+    # 1. Nájdeme embedding aktuálneho článku
+    me = ArticleEmbedding.objects.filter(article_id=article_id).first()
+    if not me:
+        return Response([])  # článok ešte nemá embedding → nič nevraciame
+
+    me_vec = np.array(me.vector, dtype=float)
+
+    # 2. Načítať embeddingy všetkých ostatných článkov
+    candidates = ArticleEmbedding.objects.exclude(article_id=article_id)
+
+    scored = []
+
+    for cand in candidates:
+        v = np.array(cand.vector, dtype=float)
+        sim = cosine_similarity(me_vec, v)
+        scored.append((cand.article_id, sim))
+
+    # 3. Zoradiť podľa similarity zostupne
+    scored.sort(key=lambda x: x[1], reverse=True)
+
+    # 4. Vybrať top k výsledkov
+    top_ids = [aid for aid, sim in scored[:k]]
+
+    # 5. Načítať články a serializovať
+    articles = Article.objects.filter(id__in=top_ids)
+    serialized = ArticleSerializer(articles, many=True, context={'request': request}).data
+
+    # zachovať pôvodné poradie
+    id_to_data = {a['id']: a for a in serialized}
+    ordered = [id_to_data[i] for i in top_ids if i in id_to_data]
+
+    return Response(ordered)
