@@ -1,10 +1,25 @@
-import { useState, useEffect } from 'react';
-import './Profile.css'; 
-import { Article, Category } from './types'; 
-import AddArticleModal from './AddArticleModal'; 
-import Swal from 'sweetalert2';
-import EditArticleModal from './EditArticleModal';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import "./Profile.css";
+import { Article, Category } from "./types";
+import AddArticleModal from "./AddArticleModal";
+import Swal from "sweetalert2";
+import EditArticleModal from "./EditArticleModal";
+import { useNavigate } from "react-router-dom";
+import { LoginContext } from "./App";
+import { useContext } from "react";
+
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 
 
@@ -26,6 +41,8 @@ const Profile = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); 
     const navigate = useNavigate(); 
+    const { openLogin } = useContext(LoginContext);
+
 
     const redirectToLogin = () => {
       navigate('/login'); 
@@ -326,86 +343,243 @@ const Profile = () => {
     };
 
   
-    return (
-      <>
-        {isLoggedIn && user ? (
-          <div className="profile-card card shadow">
-            <div className="card-body mt-3">
-              <h2 className="card-title text-center mt-2">Profile</h2>
-                <div className="profile-details text-center mb-4">
-                  <p className="profile-name mb-2">{user.first_name} {user.last_name}</p>
-                  <p className="profile-email">{user.email}</p>
-                  <div className="user-articles">
-                    <h3 className="my-articles-heading">My Article</h3>
-                    <div className="user-articles">
-                    {userArticles.map(article => (
-                      <div key={article.id} className="article-preview d-flex align-items-center justify-content-between mb-2 p-2 border rounded">
-                        <div className='article-preview-content'>
-                          <h5 className="mb-0">{article.title}</h5>
-                          <p className="mb-0">Authors: <span className="text-muted">{article.authors.map(author => author).join(', ')}</span></p>
-                          <p className="mb-0">Date: <span className="text-muted">{new Date(article.created_at).toLocaleDateString("cs-CZ")}</span></p>                                 
-                        </div>
-                        <button onClick={() => handleEditClick(article)} className="btn btn-sm edit-article-btn">
-                          Edit
-                        </button>
+return (
+  <>
+    {!isLoggedIn || !user ? (
+      <div className="flex flex-col items-center justify-center mt-20">
+        <Card className="w-full max-w-lg bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-lg">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-semibold text-[hsl(var(--foreground))]">
+              Profile
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="text-center space-y-4">
+            <p className="text-[hsl(var(--muted-foreground))]">No profile data available.</p>
+
+            <Button
+              onClick={openLogin}
+              className="
+                bg-[hsl(var(--primary))]
+                text-[hsl(var(--primary-foreground))]
+                rounded-xl px-6
+                hover:scale-[1.03]
+                transition
+              "
+            >
+              Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    ) : (
+      <div className="max-w-5xl mx-auto mt-24 px-4 pb-16">
+
+        {/* PROFILE CARD */}
+        <Card className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-md rounded-2xl mb-10">
+          <CardHeader>
+            <CardTitle className="text-2xl font-semibold text-[hsl(var(--foreground))]">
+              {user.first_name} {user.last_name}
+            </CardTitle>
+            <p className="text-[hsl(var(--muted-foreground))] text-sm">{user.email}</p>
+          </CardHeader>
+        </Card>
+
+        {/* MAIN TABS */}
+        <Tabs defaultValue="myarticles" className="w-full">
+          <TabsList
+            className="
+              grid grid-cols-2 w-full 
+              bg-[hsl(var(--muted))] 
+              border border-[hsl(var(--border))]
+              rounded-xl mb-6
+            "
+          >
+            <TabsTrigger value="myarticles" className="rounded-xl">
+              My Articles
+            </TabsTrigger>
+
+            <TabsTrigger value="liked" className="rounded-xl">
+              Favourite Articles
+            </TabsTrigger>
+          </TabsList>
+
+          {/* MY ARTICLES */}
+          <TabsContent value="myarticles">
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={() => setShowAddArticleModal(true)}
+                className="
+                  bg-[hsl(var(--primary))]
+                  text-[hsl(var(--primary-foreground))]
+                  rounded-xl px-6 shadow
+                  hover:scale-[1.03] transition
+                "
+              >
+                Add Article
+              </Button>
+            </div>
+
+            <ScrollArea className="h-[480px] pr-3">
+              <div className="space-y-4">
+                {userArticles.map((article) => (
+                  <Card
+                    key={article.id}
+                    className="
+                      bg-[hsl(var(--muted))] 
+                      border border-[hsl(var(--border))]
+                      shadow-sm rounded-xl p-4
+                      hover:bg-[hsl(var(--card))]
+                      transition
+                    "
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg">
+                          {article.title}
+                        </h3>
+
+                        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                          Authors: {article.authors.join(", ")}
+                        </p>
+
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                          Added: {new Date(article.created_at).toLocaleDateString("cs-CZ")}
+                        </p>
                       </div>
-                    ))}
+
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCurrentArticleToEdit(article.id);
+                          setShowEditModal(true);
+                        }}
+                        className="
+                          rounded-xl px-4 
+                          bg-[hsl(var(--accent))]
+                          border border-[hsl(var(--border))]
+                          text-[hsl(var(--foreground))]
+                          hover:bg-[hsl(var(--muted))]
+                          transition
+                        "
+                      >
+                        Edit
+                      </Button>
                     </div>
-                  </div>
-        
-                  <div className="profile-actions mb-2 mt-2">
-                    <button className="btn btn-primary" onClick={handleAddArticleClick}>Add Articles</button>
-                  </div>
-                  <h3>Favourite Articles</h3>
-                  <div className="liked-articles">
-                    <div className="articles-container-profile">
-                      {likedArticles.map(article => (
-                        <div key={article.id} className="article-preview d-flex align-items-center justify-content-between mb-2 p-2 border rounded">
-                          <div className='article-preview-content'>
-                            <h5 className="mb-0">{article.title}</h5>
-                            <p className="mb-0">Authors: <span className="text-muted">{article.authors.map(author => author).join(', ')}</span></p>
-                            <p className="mb-0">Date: <span className="text-muted">{new Date(article.created_at).toLocaleDateString("cs-CZ")}</span></p>                                 
-                          </div>
-                          <button onClick={() => handleShowTags(article.id)} className="btn btn-info btn-sm">Show Tags</button>
-                          <button onClick={() => handleOpenAddTagModal(article.id)} className="btn btn-primary btn-sm">Add Tag</button>
-                          <button onClick={() => unlikeArticle(article.id)} className="btn btn-secondary btn-sm">Unlike</button>
-                        </div>
-                      ))}
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          {/* LIKED ARTICLES */}
+          <TabsContent value="liked">
+            <ScrollArea className="h-[480px] pr-3">
+              <div className="space-y-4">
+                {likedArticles.map((article) => (
+                  <Card
+                    key={article.id}
+                    className="
+                      bg-[hsl(var(--muted))]
+                      border border-[hsl(var(--border))]
+                      rounded-xl p-4 shadow-sm
+                      hover:bg-[hsl(var(--card))]
+                      transition
+                    "
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg">
+                          {article.title}
+                        </h3>
+
+                        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                          Authors: {article.authors.join(", ")}
+                        </p>
+
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                          Liked: {new Date(article.created_at).toLocaleDateString("cs-CZ")}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+
+                        <Button
+                          onClick={() => handleShowTags(article.id)}
+                          size="sm"
+                          className="
+                            rounded-xl
+                            bg-[hsl(var(--accent))]
+                            border border-[hsl(var(--border))]
+                            text-[hsl(var(--foreground))]
+                            hover:bg-[hsl(var(--muted))]
+                            transition
+                          "
+                        >
+                          Show Tags
+                        </Button>
+
+                        <Button
+                          onClick={() => handleOpenAddTagModal(article.id)}
+                          size="sm"
+                          className="
+                            rounded-xl
+                            bg-[hsl(var(--primary))]
+                            text-[hsl(var(--primary-foreground))]
+                            hover:scale-[1.03]
+                            transition
+                          "
+                        >
+                          Add Tag
+                        </Button>
+
+                        <Button
+                          onClick={() => unlikeArticle(article.id)}
+                          variant="secondary"
+                          size="sm"
+                          className="
+                            rounded-xl
+                            bg-[hsl(var(--secondary))]
+                            text-[hsl(var(--foreground))]
+                            hover:bg-[hsl(var(--muted))]
+                            transition
+                          "
+                        >
+                          Unlike
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  {showEditModal && currentArticleToEdit && (
-                      <EditArticleModal
-                          show={showEditModal}
-                          article={userArticles.find(a => a.id === currentArticleToEdit)!}
-                          categories={categories}
-                          onClose={() => setShowEditModal(false)}
-                          onDelete={handleDeleteArticle}
-                          onArticleUpdated={handleArticleUpdated} 
-                      />
-                  )}
-                  {showAddArticleModal && (
-                    <AddArticleModal
-                      show={showAddArticleModal}
-                      onClose={handleCloseModal}
-                      onArticleAdded={fetchUserArticles}
-                    />
-                  )}                
-                  </div>
+                  </Card>
+                ))}
               </div>
-           </div>
-          ) : (
-            <div className="not-logged-in-card">
-              <div className="not-logged-in-content">
-                <h2>Profile</h2>
-                <p>No profile data.</p>
-                <button onClick={redirectToLogin}>
-                  Login
-                </button>
-              </div>
-            </div>          
-          )}
-        </>
-    );
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+
+        {/* MODALS */}
+        {showEditModal && currentArticleToEdit && (
+          <EditArticleModal
+            show={showEditModal}
+            article={userArticles.find((a) => a.id === currentArticleToEdit)!}
+            categories={categories}
+            onClose={() => setShowEditModal(false)}
+            onDelete={handleDeleteArticle}
+            onArticleUpdated={() => fetchUserArticles()}
+          />
+        )}
+
+        {showAddArticleModal && (
+          <AddArticleModal
+            show={showAddArticleModal}
+            onClose={() => setShowAddArticleModal(false)}
+            onArticleAdded={() => fetchUserArticles()}
+          />
+        )}
+      </div>
+    )}
+  </>
+);
+
 }
 
 export default Profile;

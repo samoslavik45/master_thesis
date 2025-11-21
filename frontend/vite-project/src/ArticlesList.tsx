@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
-import { Article, Category } from './types'; 
-import { Button, Card, Dropdown } from 'react-bootstrap'; 
-import axios from 'axios';
-import fileDownload from 'js-file-download';
-import { FaHeart } from 'react-icons/fa'; 
-import Swal from 'sweetalert2';
+// Modernized ArticlesList with full original functionality preserved
+// Using shadcn/ui components and badges for categories & keywords
+
+import React, { useState } from "react";
+import { Article, Category } from "./types";
+import axios from "axios";
+import fileDownload from "js-file-download";
+import Swal from "sweetalert2";
+
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface ArticlesListProps {
   articles: Article[];
@@ -16,56 +30,66 @@ interface ArticlesListProps {
 /* ---------------- PDF handlers ---------------- */
 
 const handlePDFDownload = (pathToFile: string) => {
-  const filename = pathToFile.split('/').pop() || 'defaultName.pdf';
-  axios.get(`http://localhost:8000/media/${pathToFile}`, {
-    responseType: 'blob',
-  })
-  .then(res => fileDownload(res.data, filename))
-  .catch(err => console.error(err));
+  const filename = pathToFile.split("/").pop() || "defaultName.pdf";
+
+  axios
+    .get(`http://localhost:8000/media/${pathToFile}`, {
+      responseType: "blob",
+    })
+    .then((res) => fileDownload(res.data, filename))
+    .catch((err) => console.error(err));
 };
 
-const handlePdfMetadataExport = (filename: string) => {
-  axios.post('http://localhost:8000/api/generate-bibtex/', { filename })
-    .then(response => {
+const handlePdfMetadataExport = (pathToFile: string) => {
+  axios
+    .post("http://localhost:8000/api/generate-bibtex/", { filename: pathToFile })
+    .then((response) => {
       const text = response.data;
-      const blob = new Blob([text], { type: 'text/plain' });
+      const blob = new Blob([text], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
 
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = filename.split('/').pop()?.replace(/\.[^/.]+$/, "") + ".bib";
+      link.download = pathToFile.split("/").pop()?.replace(/\.[^/.]+$/, "") + ".bib";
       link.click();
     })
-    .catch(() =>
-      Swal.fire('Error', 'Failed to generate BibTeX.', 'error')
-    );
+    .catch(() => Swal.fire("Error", "Failed to generate BibTeX.", "error"));
 };
 
 /* --------------- COMPONENT ---------------- */
 
 const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, groups }) => {
-
   const [expanded, setExpanded] = useState<number[]>([]);
   const [similarOpen, setSimilarOpen] = useState<number[]>([]);
   const [similar, setSimilar] = useState<Record<number, any[]>>({});
+  const [showFullAbstract, setShowFullAbstract] = useState<number[]>([]);
+
+  const toggleAbstract = (id: number) => {
+    setShowFullAbstract((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
 
   const toggleExpanded = (id: number) => {
-    setExpanded(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    setExpanded((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
   const toggleSimilar = (id: number) => {
-    setSimilarOpen(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    setSimilarOpen((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
   const fetchSimilar = async (articleId: number) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/articles/${articleId}/similar/?k=4`);
+      const res = await fetch(
+        `http://localhost:8000/api/articles/${articleId}/similar/?k=4`
+      );
       const data = await res.json();
-      setSimilar(prev => ({ ...prev, [articleId]: data }));
+      setSimilar((prev) => ({ ...prev, [articleId]: data }));
     } catch (e) {
       console.error(e);
     }
@@ -74,204 +98,635 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   /* ----------- LIKE HANDLERS ----------- */
 
   const handleLike = async (articleId: number) => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem("accessToken");
     if (!token) {
-      return Swal.fire('Error', 'Login required.', 'error');
+      return Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Login required.",
+        scrollbarPadding: false,
+      });
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/articles/like/${articleId}/`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `http://localhost:8000/api/articles/like/${articleId}/`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-      if (!res.ok) throw new Error();
-
-      Swal.fire('Success', 'Article liked!', 'success');
-    } catch {
-      Swal.fire('Error', 'Problem while liking article.', 'error');
-    }
-  };
-
-  const handleLikeAsGroup = async (articleId: number, groupId: number) => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return Swal.fire('Error', 'Login required.', 'error');
-
-    try {
-      const res = await fetch(`http://localhost:8000/api/groups/${groupId}/like_article/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ article_id: articleId }),
-      });
-
-      if (!res.ok) throw new Error();
-
-      Swal.fire('Success', 'Liked as group!', 'success');
-    } catch {
-      Swal.fire('Error', 'Problem liking article as group.', 'error');
-    }
-  };
-
-  const showTags = async (articleId: number) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/article/${articleId}/public_tags/`, {
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tags');
+      // už je liknutý
+      if (res.status === 409) {
+        return Swal.fire({
+          icon: "info",
+          title: "Notice",
+          text: "You already liked this article.",
+          scrollbarPadding: false,
+        });
       }
 
-      const { publicTags } = await response.json();
+      if (!res.ok) throw new Error();
 
       Swal.fire({
-        title: 'Tags',
-        html: `
-          <h4>Public tags of article:</h4>
-          <p>${publicTags.join(', ')}</p>
-        `,
-        confirmButtonText: 'Close',
+        icon: "success",
+        title: "Success",
+        text: "Article liked!",
+        scrollbarPadding: false,
       });
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-      Swal.fire('Error', 'Failed to fetch tags.', 'error');
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Problem while liking article.",
+        scrollbarPadding: false,
+      });
     }
   };
-  
-  /* -------------- RENDER -------------- */
 
-  return (
-    <div className="articles-list-container">
-      {articles && articles.map(article => {
 
+  const handleLikeAsGroup = async (articleId: number, groupId: number) => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      return Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Login required.",
+        scrollbarPadding: false,
+      });
+    }
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/groups/${groupId}/like_article/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ article_id: articleId }),
+        }
+      );
+
+      if (res.status === 409) {
+        return Swal.fire({
+          icon: "info",
+          title: "Notice",
+          text: "This group already liked this article.",
+          scrollbarPadding: false,
+        });
+      }
+
+      if (!res.ok) throw new Error();
+
+      Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Liked as group!",
+        scrollbarPadding: false,
+      });
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Problem liking article as group.",
+        scrollbarPadding: false,
+      });
+    }
+  };
+
+
+const showTags = async (articleId: number) => {
+  try {
+    const response = await fetch(
+      `http://localhost:8000/api/article/${articleId}/public_tags/`
+    );
+
+    if (!response.ok) throw new Error("Failed to fetch tags");
+
+    const { publicTags } = await response.json();
+
+    Swal.fire({
+      title: "Tags",
+      html: `
+        <div style="
+          font-size: 1.05rem;
+          color: #475569;
+          margin-top: 8px;
+        ">
+          ${
+            publicTags.length
+              ? publicTags.join(", ")
+              : "<i style='color:#94a3b8'>No public tags</i>"
+          }
+        </div>
+      `,
+      background: "rgba(255,255,255,0.92)",
+      color: "#1e293b",
+      width: "420px",
+      padding: "25px 20px",
+      confirmButtonText: "Close",
+      confirmButtonColor: "#6366F1",
+      customClass: {
+        popup: "rounded-2xl shadow-2xl backdrop-blur-xl",
+        title: "text-slate-800 font-semibold text-2xl",
+      },
+    });
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Failed to fetch tags.",
+      scrollbarPadding: false,
+    });
+  }
+};
+
+
+// ArticlesList.tsx – nový return blok
+
+  // ArticlesList.tsx – nový return blok
+return (
+  <div className="w-full max-w-5xl mx-auto mt-2 px-4 pb-24">
+
+    {/* BACKGROUND WRAPPER OF ARTICLES */}
+      {articles.length > 0 && (
+        <div
+          className="
+            rounded-3xl
+            p-4 sm:p-4
+            space-y-6
+            overflow-hidden
+
+            bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.45),rgba(255,255,255,0.05),transparent)]
+            backdrop-blur-md
+            shadow-[0_0_40px_rgba(0,0,0,0.08)]
+          "
+        >
+      {articles?.map((article) => {
         const isExpanded = expanded.includes(article.id);
         const similarShown = similarOpen.includes(article.id);
+        const isFullAbstract = showFullAbstract.includes(article.id);
+
+        const catList: any[] = (article as any).categories || [];
+        const kwList: any[] = (article as any).keywords || [];
+
+        const wrapperBase = `
+          relative group rounded-2xl 
+          bg-[hsl(var(--card))] 
+          border border-[hsl(var(--border))]
+          shadow-[0_4px_20px_rgba(0,0,0,0.04)] 
+          transition-all duration-300
+        `;
+
+        const wrapperHoverClosed = `
+          hover:bg-[hsl(35_45%_88%)]
+          hover:shadow-[0_10px_30px_rgba(120,95,70,0.12)]
+          hover:-translate-y-[2px]
+        `;
+
+        const abstractShort =
+          article.content.length > 480
+            ? `${article.content.substring(0, 480)}...`
+            : article.content;
 
         return (
-          <Card className="article shadow-sm mb-3" key={article.id}>
-            <Card.Body>
+          <div
+            key={article.id}
+            className={`${wrapperBase} ${isExpanded ? "" : wrapperHoverClosed}`}
+          >
+            {/* Glow */}
+            <div
+              className="
+                absolute -inset-1 rounded-2xl
+                bg-[hsl(var(--primary))/0.08]
+                blur-2xl opacity-0 
+                group-hover:opacity-100
+                transition duration-700 pointer-events-none
+              "
+            />
 
-              {/* ------------ TITLE ------------ */}
-              <div
-                className="article-title"
+            <Card
+              className="
+                bg-[hsl(var(--card))]
+                border border-[hsl(var(--border))]
+                shadow-none 
+                backdrop-blur-sm
+                rounded-xl
+              "
+            >
+
+              {/* HEADER */}
+              <CardHeader
                 onClick={() => toggleExpanded(article.id)}
-                style={{ cursor: 'pointer' }}
+                className="
+                  cursor-pointer px-8 py-6 rounded-2xl 
+                  hover:bg-[hsl(var(--muted))]
+                  transition-colors
+                "
               >
-                {article.title}
-              </div>
-
+                <h1 className="text-[1.55rem] font-semibold text-[hsl(var(--foreground))] tracking-tight">
+                  {article.title}
+                </h1>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                  Click to expand details
+                </p>
+              </CardHeader>
 
               {isExpanded && (
-                <>
-                  {/* -------- HEADER INFO BOX -------- */}
-                  <div className="article-header-box p-3 mb-3">
-                    <div className="article-meta">Authors: {article.authors.join(', ')}</div>
-                    <div className="article-meta">Categories: {article.categories.join(', ')}</div>
-                    <div className="article-meta"><strong>Keywords:</strong> {article.keywords.join(', ')}</div>
-                  </div>
-
-                  {/* DESCRIPTION */}
-                  <div className="article-description">
-                    <strong>Description:</strong> {article.content.substring(0, 450)}...
-                  </div>
-
-                  {/* ------- SIMILAR ARTICLE TOGGLE ------- */}
-                  <Button
-                    variant="outline-primary"
-                    className="mt-3 similar-toggle-btn"
-                    onClick={() => {
-                      toggleSimilar(article.id);
-                      fetchSimilar(article.id);
-                    }}
+                <CardContent className="px-8 pb-10 space-y-8">
+                  {/* NEW ULTRA-COMPACT METADATA + ACTION BAR */}
+                  <div
+                    className="
+                      mt-2
+                      rounded-xl 
+                      p-4 
+                      bg-[hsl(var(--muted))] 
+                      border border-[hsl(var(--border))]
+                      shadow-sm
+                      flex flex-col gap-4
+                    "
                   >
-                    {similarShown ? "Hide Similar Articles" : "Show Similar Articles"}
-                  </Button>
+                    <div className="flex justify-between items-start gap-6">
 
-                  {/* ------- SIMILAR ARTICLES PANEL ------- */}
-                  {similarShown && similar[article.id] && (
-                    <div className="similar-box mt-3 p-3 border rounded bg-light">
-                      <h5 className="text-primary mb-3">Similar Articles</h5>
+                    {/* LEFT SIDE — AUTHORS + KEYWORDS */}
+                    <div className="flex flex-col gap-6 flex-1">
 
-                      <div className="similar-scroll">
-                        {similar[article.id].map(sim => (
-                          <Card className="mb-2 shadow-sm" key={sim.id}>
-                            <Card.Body>
-                              <Card.Title style={{ fontSize: "1rem" }}>{sim.title}</Card.Title>
-                              <div className="text-muted" style={{ fontSize: "0.85rem" }}>
-                                Authors: {sim.authors.join(", ")}
-                              </div>
+                      {/* AUTHORS */}
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg mt-[2px]">👤</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-[0.95rem] text-[hsl(var(--foreground))] mb-2">
+                            Authors
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {article.authors.map((a) => (
+                              <span
+                                key={a}
+                                className="
+                                  px-3 py-[5px] rounded-full text-[0.85rem]
+                                  bg-[hsl(var(--card))]
+                                  text-[hsl(var(--foreground))]
+                                  border border-[hsl(var(--border))]
+                                  shadow-sm
+                                "
+                              >
+                                {a}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
 
+                      {/* KEYWORDS */}
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg mt-[2px]">🔑</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-[0.95rem] text-[hsl(var(--foreground))] mb-2">
+                            Keywords
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {kwList.length ? (
+                              kwList.map((k, idx) => (
+                                <span
+                                  key={idx}
+                                  className="
+                                  px-3 py-[5px] rounded-full text-[0.85rem]
+                                  bg-[hsl(var(--card))]
+                                  text-[hsl(var(--foreground))]
+                                  border border-[hsl(var(--border))]
+                                  shadow-sm
+                                  "
+                                >
+                                  {typeof k === "string" ? k : k?.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="italic text-[0.85rem] text-[hsl(var(--muted-foreground))]">
+                                —
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RIGHT SIDE — CATEGORY + LIKE BUTTONS */}
+                    <div className="flex flex-col gap-6 items-start pr-2">
+
+                      {/* CATEGORY */}
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg mt-[2px]">🏷️</span>
+                        <div>
+                          <p className="font-semibold text-[0.95rem] text-[hsl(var(--foreground))] mb-2">
+                            Category
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                          <span
+                            className="
+                              px-3 py-[5px] rounded-full text-[0.85rem]
+                              bg-[hsl(var(--card))]
+                              text-[hsl(var(--foreground))]
+                              border border-[hsl(var(--border))]
+                              shadow-sm
+                            "
+                          >
+                            {catList.length
+                              ? typeof catList[0] === "object"
+                                ? catList[0].name
+                                : catList[0]
+                              : "—"}
+                          </span>
+                          </div>
+                        </div>
+                      </div>
+
+                     {/* LIKE BUTTONS */}
+                      {isLoggedIn && (
+                        <div className="flex items-center gap-3 mt-4">
+                          
+                          {/* GROUP LIKE */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
-                                variant="outline-secondary"
+                                variant="outline"
+                                className="
+                                  h-9 px-4 text-[0.8rem] rounded-xl
+                                  bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--muted))]
+                                  border border-[hsl(var(--border))]
+                                  text-[hsl(var(--foreground))]
+                                  shadow-[0_2px_6px_rgba(0,0,0,0.06)]
+                                  hover:shadow-[0_3px_8px_rgba(0,0,0,0.08)]
+                                  hover:brightness-[1.06]
+                                  transition-all duration-200
+                                "
+                              >
+                                Group ❤️
+                              </Button>
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent
+                              className="
+                                rounded-xl bg-[hsl(var(--popover))]
+                                border border-[hsl(var(--border))]
+                                shadow-xl backdrop-blur-xl p-1
+                              "
+                            >
+                              {groups.map((g) => (
+                                <DropdownMenuItem
+                                  key={g.id}
+                                  onClick={() => handleLikeAsGroup(article.id, g.id)}
+                                  className="
+                                    rounded-lg px-3 py-2 text-sm
+                                    hover:bg-[hsl(var(--muted))]
+                                    cursor-pointer
+                                  "
+                                >
+                                  {g.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          {/* HEART LIKE */}
+                          <button
+                            onClick={() => handleLike(article.id)}
+                            className="
+                              h-10 w-10 rounded-full
+                              bg-[hsl(var(--primary))/0.12]
+                              text-[hsl(var(--primary))]
+                              flex items-center justify-center
+                              text-lg shadow-[0_2px_6px_rgba(0,0,0,0.08)]
+                              backdrop-blur-sm
+                              hover:bg-[hsl(var(--primary))/0.18]
+                              hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)]
+                              hover:scale-[1.08]
+                              transition-all duration-200
+                            "
+                          >
+                            ❤️
+                          </button>
+                        </div>
+                      )}
+
+
+                    </div>
+                    
+                    </div>
+                  </div>
+                  <Separator />
+
+                  {/* ABSTRACT */}
+                  <div className="
+                    p-6 rounded-xl shadow-inner
+                    bg-[hsl(var(--muted))]
+                    border border-[hsl(var(--border))]
+                    backdrop-blur-xl
+                  ">
+                    <h4 className="font-bold text-[hsl(var(--foreground))] mb-3">Abstract</h4>
+                    <p className="text-[hsl(var(--foreground))] leading-relaxed text-[0.95rem]">
+                      {isFullAbstract ? article.content : abstractShort}
+                    </p>
+
+                    {article.content.length > 480 && (
+                      <button
+                        onClick={() => toggleAbstract(article.id)}
+                        className="
+                          mt-3 text-sm font-medium 
+                          text-[hsl(var(--primary))]
+                          hover:underline
+                        "
+                      >
+                        {isFullAbstract ? "Show less" : "Show full abstract"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* BUTTONS */}
+                  <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+
+                    {/* LEFT BUTTONS */}
+                    <div className="flex flex-wrap gap-3">
+
+                      <Button
+                        onClick={() =>
+                          window.open(`http://localhost:8000/media/${article.pdf_file}`, "_blank")
+                        }
+                        className="
+                          rounded-xl px-6
+                          bg-[hsl(var(--primary))]
+                          text-[hsl(var(--primary-foreground))]
+                          shadow-md
+                          hover:scale-[1.03]
+                          transition-all duration-200
+                        "
+                      >
+                        Open PDF
+                      </Button>
+
+                      <Button
+                        onClick={() => handlePDFDownload(article.pdf_file)}
+                        className="
+                          rounded-xl px-6
+                          bg-[hsl(var(--primary))]
+                          text-[hsl(var(--primary-foreground))]
+                          shadow-md
+                          hover:scale-[1.03]
+                          transition-all duration-200
+                        "
+                      >
+                        Download PDF
+                      </Button>
+
+                    </div>
+
+                    {/* RIGHT BUTTONS */}
+                    <div className="flex flex-wrap gap-3">
+
+                      <Button
+                        onClick={() => handlePdfMetadataExport(article.pdf_file)}
+                        className="
+                          rounded-xl px-6
+                          bg-[hsl(var(--primary))]
+                          text-[hsl(var(--primary-foreground))]
+                          shadow-md
+                          hover:scale-[1.03]
+                          transition-all duration-200
+                        "
+                      >
+                        Export BibTeX
+                      </Button>
+
+                      <Button
+                        onClick={() => showTags(article.id)}
+                        className="
+                          rounded-xl px-6
+                          bg-[hsl(var(--primary))]
+                          text-[hsl(var(--primary-foreground))]
+                          shadow-md
+                          hover:scale-[1.03]
+                          transition-all duration-200
+                        "
+                      >
+                        Show Tags
+                      </Button>
+
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        toggleSimilar(article.id);
+                        fetchSimilar(article.id);
+                      }}
+                      className="
+                        rounded-xl px-5
+                        bg-[hsl(var(--accent))]
+                        text-[hsl(var(--foreground))]
+                        border border-[hsl(var(--border))]
+                        shadow-sm
+                        hover:bg-[hsl(var(--muted))]
+                        hover:shadow-md
+                        hover:scale-[1.03]
+                        transition-all
+                      "
+                    >
+                      {similarShown ? "Hide Similar Articles" : "Show Similar Articles"}
+                    </Button>
+                  </div>
+
+
+                  {/* SIMILAR LIST */}
+                  {similarShown && similar[article.id] && (
+                    <div
+                      className="
+                        p-6 rounded-xl 
+                        bg-[hsl(var(--accent))]
+                        border border-[hsl(var(--border))]
+                        shadow-inner 
+                        backdrop-blur-xl
+                        mt-4
+                      "
+                    >
+                      <h3 className="font-semibold text-[hsl(var(--foreground))] mb-4 text-lg">
+                        Similar Articles
+                      </h3>
+
+                      <ScrollArea className="h-56 pr-2">
+                        <div className="space-y-4">
+                          {similar[article.id].map((sim) => (
+                            <div
+                              key={sim.id}
+                              className="
+                                p-4 rounded-xl
+                                bg-[hsl(var(--muted))]
+                                border border-[hsl(var(--border))]
+                                shadow-sm
+                                hover:bg-[hsl(var(--card))]
+                                hover:shadow-md 
+                                hover:-translate-y-[1px]
+                                transition-all duration-200
+                              "
+                            >
+                              {/* TITLE */}
+                              <h4 className="font-semibold text-[hsl(var(--foreground))] text-sm mb-1 leading-tight">
+                                {sim.title}
+                              </h4>
+
+                              {/* AUTHORS */}
+                              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-3">
+                                {sim.authors.join(", ")}
+                              </p>
+
+                              {/* BUTTON */}
+                              <Button
                                 size="sm"
-                                className="mt-2"
-                                onClick={() =>
-                                  window.open(`http://localhost:8000/media/${sim.pdf_file}`, "_blank")
-                                }
+                                variant="outline"
+                                onClick={() => {
+                                  window.open(`${sim.pdf_file}`, "_blank")
+                                }}
+                                className="
+                                  rounded-xl px-4 py-[6px]
+                                  bg-[hsl(var(--accent))]
+                                  text-[hsl(var(--foreground))]
+                                  border border-[hsl(var(--border))]
+                                  shadow-sm
+                                  hover:bg-[hsl(var(--muted))]
+                                  hover:shadow-md
+                                  hover:scale-[1.04]
+                                  transition-all duration-200
+                                "
                               >
                                 Open PDF
                               </Button>
-                            </Card.Body>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ------- TAGS BUTTON ------- */}
-                  <Button
-                    variant="outline-info"
-                    className="mt-3 tag-button"
-                    onClick={() => showTags(article.id)}
-                  >
-                    ⭐ Show Tags
-                  </Button>
-
-                  {/* ACTION BUTTONS */}
-                  <div className="d-flex gap-2 flex-wrap mt-3">
-                    <Button variant="primary" onClick={() => window.open(`http://localhost:8000/media/${article.pdf_file}`, "_blank")}>
-                      Open PDF
-                    </Button>
-                    <Button variant="info" onClick={() => handlePDFDownload(article.pdf_file)}>
-                      Download PDF
-                    </Button>
-                    <Button variant="success" onClick={() => handlePdfMetadataExport(article.pdf_file)}>
-                      Export BibTeX
-                    </Button>
-                  </div>
-
-                  {/* LIKE SECTION */}
-                  {isLoggedIn && (
-                    <div className="d-flex gap-2 align-items-center mt-4">
-                      <Dropdown>
-                        <Dropdown.Toggle className="like-group-btn">
-                          👍 Like as Group
-                        </Dropdown.Toggle>
-
-                        <Dropdown.Menu>
-                          {groups.map(g => (
-                            <Dropdown.Item key={g.id} onClick={() => handleLikeAsGroup(article.id, g.id)}>
-                              {g.name}
-                            </Dropdown.Item>
+                            </div>
                           ))}
-                        </Dropdown.Menu>
-                      </Dropdown>
-
-                      <Button className="like-btn" onClick={() => handleLike(article.id)}>
-                        ❤️
-                      </Button>
+                        </div>
+                      </ScrollArea>
                     </div>
                   )}
-                </>
+
+
+                </CardContent>
               )}
-            </Card.Body>
-          </Card>
+            </Card>
+          </div>
         );
       })}
     </div>
-  );
+  )}
+  </div>
+);
+
+
+
+
+
+
 };
 
 export default ArticlesList;

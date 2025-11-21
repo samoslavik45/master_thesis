@@ -1,16 +1,25 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import path from "path"
+import { fileURLToPath } from "url"
 
-// https://vitejs.dev/config/
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
   server: {
-    host: '0.0.0.0',   // potreba v kontajneri
-    port: 80,          // vo vnútri kontajnera počúvaj na 80
+    host: "0.0.0.0",
+    port: 80,
     strictPort: true,
     watch: {
-      usePolling: true, // dôležité na Windows/Docker
-      interval: 300
-    }
-  }
+      usePolling: true,
+      interval: 300,
+    },
+  },
 })
