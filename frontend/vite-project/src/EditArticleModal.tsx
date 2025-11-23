@@ -3,6 +3,19 @@ import { Article, Category, EditedKeyword } from './types';
 import './EditArticleModal.css';
 import KeywordsModal from './KeywordsModal';
 import Swal from 'sweetalert2';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 interface Keyword {
   id: number;
@@ -389,118 +402,163 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
   // ---------------------------------------------------------------------------
   // 12) Render
   // ---------------------------------------------------------------------------
-  return (
-    <div className="edit-article-modal">
-      <form onSubmit={handleSubmit}>
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Edit Article</h5>
-            <button type="button" className="close" onClick={onClose}>
-              &times;
-            </button>
+return (
+  <Dialog open={show} onOpenChange={onClose}>
+    <DialogContent
+      className="
+        max-w-2xl 
+        rounded-2xl 
+        bg-white/90 
+        backdrop-blur-xl
+        border 
+        shadow-2xl
+        p-0
+      "
+    >
+      <DialogHeader className="p-6 pb-2">
+        <DialogTitle className="text-2xl font-semibold tracking-tight">
+          Edit Article
+        </DialogTitle>
+      </DialogHeader>
+
+      <ScrollArea className="max-h-[70vh] px-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* TITLE */}
+          <div className="space-y-2">
+            <Label>Title</Label>
+            <Input
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              className="bg-white/70 backdrop-blur-sm border rounded-lg"
+            />
           </div>
 
-          <div className="modal-body">
-            <div className="form-group">
-              <label>Title:</label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                className="form-control"
-              />
-            </div>
+          {/* ABSTRACT */}
+          <div className="space-y-2">
+            <Label>Abstract</Label>
+            <Textarea
+              name="content"
+              value={formData.content}
+              onChange={handleChange}
+              className="min-h-[150px] bg-white/70 backdrop-blur-sm border rounded-lg"
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Abstract:</label>
-              <textarea
-                name="content"
-                value={formData.content}
-                onChange={handleChange}
-                className="form-control"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="author_name">Author Name:</label>
-              <input
-                type="text"
-                id="author_name"
-                name="author_name"
-                value={formData.author_name}
-                onChange={handleChange}
-                className="form-control"
-              />
-            </div>
-
-            <label htmlFor="categorySearch">Search Categories:</label>
-            <input
+          {/* AUTHORS */}
+          <div className="space-y-2">
+            <Label>Authors (comma-separated)</Label>
+            <Input
               type="text"
-              id="categorySearch"
+              name="author_name"
+              value={formData.author_name}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* CATEGORY SEARCH */}
+          <div className="space-y-2">
+            <Label>Search Categories</Label>
+            <Input
+              type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search categories..."
             />
+          </div>
 
-            <div className="form-group">
-              <label>Category:</label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="form-control"
-                size={5}
-              >
-                {filteredCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+          {/* CATEGORY LIST */}
+          <div className="space-y-2">
+            <Label>Select Category</Label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="w-full border rounded-lg p-2 bg-white/70"
+              size={5}
+            >
+              {filteredCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* KEYWORDS */}
+          <div className="space-y-3">
+            <Label>Keywords</Label>
+
+            {/* Chips preview */}
+            <div className="flex flex-wrap gap-2">
+              {selectedKeywordNames.map((name, i) => (
+                <span
+                  key={i}
+                  className="px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-xs"
+                >
+                  {name}
+                </span>
+              ))}
             </div>
 
-            {showKeywordsModal && (
-              <KeywordsModal
-                editedKeywords={editedKeywords}
-                onConfirm={handleKeywordsConfirm}
-                setKeywordsChanged={setKeywordsChanged}
-                setShowKeywordsModal={setShowKeywordsModal}
-              />
-            )}
-
-            <button
+            {/* Edit button */}
+            <Button
               type="button"
+              variant="secondary"
               onClick={handleEditKeywordsClick}
-              className="btn btn-secondary"
+              className="rounded-lg"
             >
               Edit Keywords
-            </button>
+            </Button>
           </div>
 
-          <div className="modal-footer">
-            <button
+          {showKeywordsModal && (
+            <KeywordsModal
+              editedKeywords={editedKeywords}
+              onConfirm={handleKeywordsConfirm}
+              setKeywordsChanged={setKeywordsChanged}
+              setShowKeywordsModal={setShowKeywordsModal}
+            />
+          )}
+
+          <DialogFooter className="p-6 pt-2 flex justify-between">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDelete}
+            className="rounded-lg"
+          >
+            Delete Article
+          </Button>
+
+          <div className="flex gap-3">
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={onClose}
+              className="rounded-lg"
             >
               Close
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Save changes
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="btn btn-danger"
+            </Button>
+
+            <Button
+              type="submit"
+              className="rounded-lg bg-primary text-white"
             >
-              Delete Article
-            </button>
+              Save Changes
+            </Button>
           </div>
-        </div>
-      </form>
-    </div>
-  );
+        </DialogFooter>
+        </form>
+      </ScrollArea>
+
+      
+    </DialogContent>
+  </Dialog>
+);
+
 };
 
 export default EditArticleModal;

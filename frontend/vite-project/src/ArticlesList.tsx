@@ -20,6 +20,15 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+
+
 interface ArticlesListProps {
   articles: Article[];
   groups: Array<{ id: number; name: string }>;
@@ -63,6 +72,8 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   const [similarOpen, setSimilarOpen] = useState<number[]>([]);
   const [similar, setSimilar] = useState<Record<number, any[]>>({});
   const [showFullAbstract, setShowFullAbstract] = useState<number[]>([]);
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [publicTags, setPublicTags] = useState<string[]>([]);
 
   const toggleAbstract = (id: number) => {
     setShowFullAbstract((prev) =>
@@ -206,41 +217,13 @@ const showTags = async (articleId: number) => {
 
     if (!response.ok) throw new Error("Failed to fetch tags");
 
-    const { publicTags } = await response.json();
+    const data = await response.json();
+    setPublicTags(data.publicTags || []);
+    setTagsModalOpen(true);
 
-    Swal.fire({
-      title: "Tags",
-      html: `
-        <div style="
-          font-size: 1.05rem;
-          color: #475569;
-          margin-top: 8px;
-        ">
-          ${
-            publicTags.length
-              ? publicTags.join(", ")
-              : "<i style='color:#94a3b8'>No public tags</i>"
-          }
-        </div>
-      `,
-      background: "rgba(255,255,255,0.92)",
-      color: "#1e293b",
-      width: "420px",
-      padding: "25px 20px",
-      confirmButtonText: "Close",
-      confirmButtonColor: "#6366F1",
-      customClass: {
-        popup: "rounded-2xl shadow-2xl backdrop-blur-xl",
-        title: "text-slate-800 font-semibold text-2xl",
-      },
-    });
   } catch (err) {
-    Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: "Failed to fetch tags.",
-      scrollbarPadding: false,
-    });
+    setPublicTags(["Error loading tags"]);
+    setTagsModalOpen(true);
   }
 };
 
@@ -719,14 +702,75 @@ return (
       })}
     </div>
   )}
+
+    {/* TAGS MODAL */}
+  <Dialog open={tagsModalOpen} onOpenChange={setTagsModalOpen}>
+    <DialogContent
+      className="
+        max-w-md 
+        rounded-3xl 
+        bg-white/90 
+        backdrop-blur-xl 
+        p-8 
+        shadow-2xl
+        border border-[hsl(var(--border))]
+      "
+    >
+      <DialogHeader className="text-center">
+        <DialogTitle className="text-3xl font-semibold text-[hsl(var(--foreground))] tracking-tight">
+          Public Tags
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+          Tags visible to all users
+        </p>
+      </DialogHeader>
+
+      <div className="mt-6 text-center">
+        {publicTags.length > 0 ? (
+          <div className="flex flex-wrap justify-center gap-3">
+            {publicTags.map((tag, i) => (
+              <span
+                key={i}
+                className="
+                  px-4 py-1.5 
+                  bg-[hsl(var(--accent))] 
+                  text-[hsl(var(--foreground))] 
+                  rounded-full 
+                  text-sm 
+                  border border-[hsl(var(--border))]
+                  shadow-sm
+                "
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <i className="text-[hsl(var(--muted-foreground))]">
+            No public tags found
+          </i>
+        )}
+      </div>
+
+      <DialogFooter className="mt-6 flex justify-center">
+        <Button
+          onClick={() => setTagsModalOpen(false)}
+          className="
+            rounded-lg px-8 py-2 
+            bg-[hsl(var(--primary))] 
+            text-[hsl(var(--primary-foreground))] 
+            hover:brightness-110 
+            shadow-md
+          "
+        >
+          Close
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
   </div>
 );
-
-
-
-
-
-
 };
 
 export default ArticlesList;

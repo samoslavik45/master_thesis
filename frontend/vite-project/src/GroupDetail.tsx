@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import InviteButton from './InviteButton'; 
 import './GroupDetail.css';
 import Swal from 'sweetalert2';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent
+} from "@/components/ui/card";
+
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+
+import { Users, Bookmark, Tag, Trash2, LogOut, Send } from "lucide-react";
+
 
 interface Group {
     id: number;
@@ -36,6 +50,9 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
   const [articles, setArticles] = useState<Article[]>([]);
   const [currentUser, setCurrentUser] = useState<number | null>(null); 
   const [isAdmin, setIsAdmin] = useState(false);
+  const sortByName = (a: any, b: any) =>
+  a.first_name.localeCompare(b.first_name);
+
 
   
   useEffect(() => {
@@ -410,68 +427,220 @@ const handleExportBibtex = async () => {
 };
 
 
-  return (
-    <div className='group-detail'>
-      <h2>Detail of group {group?.name}</h2>
-      <div>
-        <h3>Group members</h3>
-        <div className="group-members">
-        <ul>
-        {group?.members.map((member) => (
-              <li key={member.id}>
-                {member.first_name} {member.last_name} ({member.username})
-                {isAdmin && currentUser !== member.id && (
-                  <button onClick={() => handleKickMember(member.id)} className='btn btn-delete btn-sm'>
-                    Remove member
-                  </button>
-                )}
-              </li>
-            ))}
-        </ul>
-        </div>
-      </div>
-      <div>
-        <h3>Favourite Articles</h3>
-        <div className="group-articles">
-        {articles.length > 0 ? (
-          <ul>
-            {articles.map((article) => (
-              <li key={article.id} className='article-item'>
-                {article.title.length > 60
-                  ? `${article.title.substring(0, 60)}...`
-                  : article.title}
-              <div className="button-group">
-                <button onClick={() => handleShowTags(article.id)} className='btn btn-info btn-sm'>Show Tags </button>
-                <button onClick={() => handleOpenAddTagModal(article.id)} className='btn btn-group-primary btn-sm'>Add Tag</button>
-                {isAdmin && (
-                  <button onClick={() => handleUnlikeArticleAsGroup(article.id)} className='btn btn-group-secondary btn-sm'>
-                    Unlike
-                  </button>
-                )}
-              </div>
-              </li> 
-            ))}
-          </ul>
-        ) : (
-          <p>No liked articles.</p>
-        )}
-        </div>
-      </div>
-      <div className='group-detail-actions'>
-        <div className="group-detail-actions-left">
-          {group && currentUser === group.admin.id && <InviteButton groupId={groupId} />} {}
-          <button className="btn btn-success" onClick={handleExportBibtex}>Export BibTeX of All Articles</button>
-        </div>
-        <div className="group-detail-actions-right">
-          {group && currentUser === group.admin.id ? (
-            <button className="btn-delete" onClick={handleDeleteGroup}>Delete Group</button>
+return (
+  <Card
+    className="
+      bg-card/70 
+      backdrop-blur-xl 
+      border 
+      rounded-2xl 
+      shadow-xl 
+      p-6 
+      space-y-8
+    "
+  >
+    {/* ---------- HEADER ---------- */}
+    <CardHeader className="pb-4">
+      <CardTitle className="text-3xl font-semibold text-primary tracking-tight">
+        {group?.name}
+      </CardTitle>
+
+      <p className="text-muted-foreground mt-1">
+        Admin:{" "}
+        <span className="font-medium">
+          {group?.admin.first_name} {group?.admin.last_name}
+        </span>
+      </p>
+    </CardHeader>
+
+    <Separator />
+
+
+    {/* ---------- GROUP MEMBERS ---------- */}
+    <Card className="border rounded-xl shadow-sm bg-card/60">
+      <CardHeader className="flex flex-row items-center gap-2">
+        <Users className="w-5 h-5 text-primary" />
+        <CardTitle className="text-xl">Members</CardTitle>
+      </CardHeader>
+
+      <CardContent>
+        <ScrollArea className="max-h-60 pr-3">
+          {group?.members.length ? (
+            <ul className="space-y-3">
+              {group.members.sort(sortByName).map((m) => (
+                <li
+                  key={m.id}
+                  className="
+                    flex 
+                    justify-between 
+                    items-center 
+                    bg-accent 
+                    p-3 
+                    rounded-lg 
+                    border 
+                    border-border
+                  "
+                >
+                  <div>
+                    <p className="font-medium">
+                      {m.first_name} {m.last_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      @{m.username}
+                    </p>
+                  </div>
+
+                  {isAdmin && currentUser !== m.id && (
+                    <Button
+                      variant="destructive"
+                      className="rounded-lg"
+                      onClick={() => handleKickMember(m.id)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <button className="btn-delete" onClick={handleLeaveGroup}>Leave Group</button>
+            <p className="text-muted-foreground text-sm">No members.</p>
           )}
-        </div>
+        </ScrollArea>
+
+        {!isAdmin && (
+          <p className="text-muted-foreground text-xs mt-2">
+            Only group admin can remove members.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+
+
+    <Separator />
+
+
+    {/* ---------- FAVOURITE ARTICLES ---------- */}
+    <Card className="border rounded-xl shadow-sm bg-card/60">
+      <CardHeader className="flex flex-row items-center gap-2 mb-2">
+        <Bookmark className="w-5 h-5 text-primary" />
+        <CardTitle className="text-xl">Favourite Articles</CardTitle>
+      </CardHeader>
+
+      <CardContent>
+        <ScrollArea className="max-h-72 pr-3">
+          {articles.length > 0 ? (
+            <ul className="space-y-4">
+              {articles.map((article) => (
+                <li
+                  key={article.id}
+                  className="
+                    bg-accent 
+                    p-4 
+                    rounded-lg 
+                    border 
+                    border-border 
+                    shadow-sm
+                  "
+                >
+                  <p className="font-medium mb-3">
+                    {article.title.length > 80
+                      ? article.title.slice(0, 80) + "..."
+                      : article.title}
+                  </p>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => handleShowTags(article.id)}
+                    >
+                      Show Tags
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => handleOpenAddTagModal(article.id)}
+                    >
+                      Add Tag
+                    </Button>
+
+                    {isAdmin && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => handleUnlikeArticleAsGroup(article.id)}
+                      >
+                        Unlike
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm">No liked articles.</p>
+          )}
+        </ScrollArea>
+      </CardContent>
+    </Card>
+
+
+    <Separator />
+
+
+    {/* ---------- ACTIONS ---------- */}
+    <div className="flex justify-between items-center pt-4">
+
+      {/* LEFT SIDE ACTIONS */}
+      <div className="flex items-center gap-3">
+        {isAdmin && (
+          <Button
+            onClick={() => {}}
+            className="rounded-lg flex items-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            <InviteButton groupId={groupId} />
+          </Button>
+        )}
+
+        <Button
+          variant="secondary"
+          className="rounded-lg"
+          onClick={handleExportBibtex}
+        >
+          Export BibTeX
+        </Button>
+      </div>
+
+      {/* RIGHT SIDE ACTIONS */}
+      <div className="flex gap-3">
+        {isAdmin ? (
+          <Button
+            variant="destructive"
+            className="rounded-lg flex items-center gap-2"
+            onClick={handleDeleteGroup}
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Group
+          </Button>
+        ) : (
+          <Button
+            variant="destructive"
+            className="rounded-lg flex items-center gap-2"
+            onClick={handleLeaveGroup}
+          >
+            <LogOut className="w-4 h-4" />
+            Leave Group
+          </Button>
+        )}
       </div>
     </div>
-  );
+  </Card>
+);
+
 };
 
 export default GroupDetail;

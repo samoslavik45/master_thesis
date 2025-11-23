@@ -1,7 +1,7 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
 import './AddArticleModal.css'
 import { Category } from './types'; 
-import KeywordsModalAdd from './KeywordsModalAdd';
+import KeywordsModal from './KeywordsModal';
 import AbstractModal from './AbstractModal'; 
 import Swal from 'sweetalert2';
 import { FaPlus } from 'react-icons/fa'; 
@@ -348,12 +348,8 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ show, onClose, onArti
 
                   {}
                   <label htmlFor="keywords_text">Keywords:</label>
-                  {showKeywordsModal && (
-                    <KeywordsModalAdd
-                      keywords={keywordsForEditing}
-                      onConfirm={handleKeywordsConfirm}
-                    />
-                  )}       
+                  
+                        
                   </>
                 )}     
               </div>

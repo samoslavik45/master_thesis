@@ -1,10 +1,5 @@
 import React, { useState, useEffect, createContext } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Link,
-} from "react-router-dom";
+import { Routes, Route, Link, useLocation } from "react-router-dom";
 
 import MainContent from "./MainContent";
 import Profile from "./Profile";
@@ -15,16 +10,15 @@ import RegisterModal from "@/components/RegisterModal";
 import { Toaster } from "sonner";
 
 export const LoginContext = createContext({
-  openLogin: () => {}
+  openLogin: () => {},
 });
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
 
-  
+  const location = useLocation(); // ✔ teraz funguje
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -38,9 +32,7 @@ function App() {
   };
 
   return (
-    <Router>
-      <LoginContext.Provider value={{ openLogin: () => setLoginOpen(true) }}>
-
+    <LoginContext.Provider value={{ openLogin: () => setLoginOpen(true) }}>
       <Toaster
         position="bottom-right"
         richColors
@@ -56,6 +48,7 @@ function App() {
           },
         }}
       />
+
       <div className="theme-custom min-h-screen flex flex-col bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
 
         {/* NAVBAR */}
@@ -118,18 +111,16 @@ function App() {
               </Link>
 
               {!isLoggedIn ? (
-                <>
-                  <button
-                    onClick={() => setLoginOpen(true)}
-                    className="
-                      text-[hsl(var(--foreground))]
-                      hover:text-[hsl(var(--primary))]
-                      transition font-medium
-                    "
-                  >
-                    Login
-                  </button>
-                </>
+                <button
+                  onClick={() => setLoginOpen(true)}
+                  className="
+                    text-[hsl(var(--foreground))]
+                    hover:text-[hsl(var(--primary))]
+                    transition font-medium
+                  "
+                >
+                  Login
+                </button>
               ) : (
                 <button
                   onClick={handleLogout}
@@ -146,7 +137,7 @@ function App() {
           </div>
         </header>
 
-        {/* LOGIN MODAL */}
+        {/* MODALS */}
         <LoginModal
           open={loginOpen}
           onOpenChange={setLoginOpen}
@@ -154,13 +145,13 @@ function App() {
           openRegister={() => setRegisterOpen(true)}
         />
 
-        {/* REGISTER MODAL */}
         <RegisterModal
           open={registerOpen}
           onOpenChange={setRegisterOpen}
           openLogin={() => setLoginOpen(true)}
         />
 
+        {/* CONTENT */}
         <div className="flex-grow pt-[7vh] bg-[hsl(var(--background))]">
           <Routes>
             <Route path="/" element={<MainContent setIsLoggedIn={setIsLoggedIn} />} />
@@ -169,8 +160,10 @@ function App() {
           </Routes>
         </div>
 
-        <footer
-          className="
+        {/* FOOTER - hidden on /groups */}
+        {location.pathname !== "/groups" && (
+          <footer
+            className="
             footer
             bg-[hsl(var(--card))]
             text-[hsl(var(--foreground))]
@@ -178,14 +171,13 @@ function App() {
             shadow-[0_-2px_12px_rgba(0,0,0,0.06)]
             py-3 text-center text-sm
           "
-        >
-          Pôvodne navrhol a vytvoril Samuel Slávik (2024) ako bakalársku prácu
-          na UK — FMFI.
-        </footer>
-
+          >
+            Pôvodne navrhol a vytvoril Samuel Slávik (2024) ako bakalársku prácu
+            na UK — FMFI.
+          </footer>
+        )}
       </div>
-      </LoginContext.Provider>
-    </Router>
+    </LoginContext.Provider>
   );
 }
 
