@@ -23,6 +23,7 @@ import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import Swal from "sweetalert2";
 
 import ArticlesList from "./ArticlesList";
+import SearchPanel from "./SearchPanel";
 import { Article, Category } from "./types";
 
 interface MainContentProps {
@@ -115,6 +116,28 @@ const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
     }
   };
 
+  const handleSearch = async (query: string) => {
+  setSearchQuery(query);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const res = await fetch(
+        `http://localhost:8000/main/search_articles/?q=${encodeURIComponent(query)}`,
+        { headers }
+      );
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.articles;
+      setArticles(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+
   // CATEGORY SELECT HANDLER
   const handleSelectCategory = async (category: Category) => {
     setSelectedCategory(category);
@@ -159,154 +182,16 @@ return (
     </div>
 
     {/* SEARCH + FILTER PANEL */}
-    <div
-      className="
-        w-full max-w-3xl
-        bg-[hsl(var(--card))]
-        backdrop-blur-xl
-        border border-[hsl(var(--border))]
-        shadow-[0_4px_40px_rgba(0,0,0,0.05)]
-        rounded-2xl
-        p-6
-        space-y-5
-        mx-auto
-      "
-    >
-      {/* SEARCH BAR */}
-      <form onSubmit={handleSearchSubmit} className="flex items-center gap-4">
-        
-        {/* icon */}
-        <div
-          className="
-            w-12 h-12 rounded-xl
-            bg-[hsl(var(--muted))]
-            border border-[hsl(var(--border))]
-            flex items-center justify-center
-            text-[hsl(var(--muted-foreground))]
-          "
-        >
-          <MagnifyingGlassIcon className="w-5 h-5" />
-        </div>
-
-        <Input
-          placeholder="Search scientific articles, authors, keywords..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="
-            flex-1 h-12 text-base rounded-xl
-            bg-[hsl(var(--input))]
-            border border-[hsl(var(--border))]
-            text-[hsl(var(--foreground))]
-            focus-visible:ring-[hsl(var(--ring))]
-            focus-visible:ring-2
-            transition
-          "
-        />
-
-        <Button
-          type="submit"
-          className="
-            h-12 px-8 rounded-xl font-semibold
-            bg-[hsl(var(--primary))]
-            text-[hsl(var(--primary-foreground))]
-            shadow-md
-            hover:scale-[1.02]
-            transition
-          "
-        >
-          Search
-        </Button>
-      </form>
-
-      {/* CATEGORY FILTER */}
-      <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className="
-              w-full h-12 justify-between rounded-xl
-              bg-[hsl(var(--accent))]
-              text-[hsl(var(--foreground))]
-              border border-[hsl(var(--border))]
-              hover:bg-[hsl(var(--muted))]
-            "
-          >
-            {selectedCategory ? selectedCategory.name : "Filter by category"}
-            <ChevronsUpDown className="h-4 w-4 opacity-60" />
-          </Button>
-        </PopoverTrigger>
-
-        <PopoverContent
-          className="
-            w-full p-0 
-            rounded-xl 
-            bg-[hsl(var(--card))]
-            border border-[hsl(var(--border))]
-            shadow-xl
-          "
-        >
-          <Command>
-            <CommandInput
-              placeholder="Search categories..."
-              className="
-                bg-[hsl(var(--input))]
-                border-b border-[hsl(var(--border))]
-                text-[hsl(var(--foreground))]
-              "
-            />
-
-            <CommandList>
-              <CommandEmpty className="py-3 text-[hsl(var(--muted-foreground))]">
-                No categories found.
-              </CommandEmpty>
-
-              <CommandGroup heading="Categories">
-                {categories.map((cat) => (
-                  <CommandItem
-                    key={cat.id}
-                    value={cat.name}
-                    onSelect={() => handleSelectCategory(cat)}
-                    className="
-                      flex items-center justify-between
-                      text-[hsl(var(--foreground))]
-                      hover:bg-[hsl(var(--muted))]
-                      rounded-lg
-                      cursor-pointer
-                    "
-                  >
-                    <div className="flex items-center gap-2">
-                      <Check
-                        className={`h-4 w-4 ${
-                          selectedCategory?.id === cat.id
-                            ? "opacity-100"
-                            : "opacity-0"
-                        }`}
-                      />
-                      {cat.name}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShowCategoryInfo(cat);
-                      }}
-                      className="
-                        rounded-full p-1 
-                        hover:bg-[hsl(var(--accent))]
-                      "
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-
-          </Command>
-        </PopoverContent>
-      </Popover>
+    <div>
+    <SearchPanel
+      onSearch={handleSearch}
+      onCategorySelect={(categoryId) => {
+        const category = categories.find(c => c.id === categoryId);
+        if (category) handleSelectCategory(category);
+      }}
+    />
     </div>
+
 
     {/* ARTICLES LIST */}
     <div className="w-full mt-10">

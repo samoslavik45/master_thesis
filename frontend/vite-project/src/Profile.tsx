@@ -280,37 +280,6 @@ const Profile = () => {
       });
     };
 
-    const handleShowTags = async (articleId: number) => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        try {
-          const response = await fetch(`http://localhost:8000/api/article/${articleId}/tags/`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          });
-          if (!response.ok) {
-            throw new Error('Failed to fetch tags');
-          }
-          const { publicTags, userTags } = await response.json();
-    
-          
-          Swal.fire({
-            title: 'Article Tags',
-            html: `
-              <h6>Public Tags:</h6>
-              <p>${publicTags.join('; ')}</p>
-              <h6>Your Tags:</h6>
-              <p>${userTags.join('; ')}</p>
-            `,
-            confirmButtonText: 'Close',
-          });
-        } catch (error) {
-          console.error('Error fetching tags:', error);
-        }
-      }
-    };
-
     const showTags = async (articleId: number) => {
       const token = localStorage.getItem('accessToken');
       try {

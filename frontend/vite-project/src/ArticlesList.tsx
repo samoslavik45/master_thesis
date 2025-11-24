@@ -74,6 +74,7 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   const [showFullAbstract, setShowFullAbstract] = useState<number[]>([]);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [publicTags, setPublicTags] = useState<string[]>([]);
+  const [userTags, setUserTags] = useState<string[]>([]);
 
   const toggleAbstract = (id: number) => {
     setShowFullAbstract((prev) =>
@@ -210,22 +211,27 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
 
 
 const showTags = async (articleId: number) => {
-  try {
-    const response = await fetch(
-      `http://localhost:8000/api/article/${articleId}/public_tags/`
-    );
+      const token = localStorage.getItem('accessToken');
+      try {
+        const response = await fetch(`http://localhost:8000/api/article/${articleId}/tags/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-    if (!response.ok) throw new Error("Failed to fetch tags");
+        if (!response.ok) throw new Error("Failed to fetch tags");
 
-    const data = await response.json();
-    setPublicTags(data.publicTags || []);
-    setTagsModalOpen(true);
+        const { publicTags, userTags } = await response.json();
+        setPublicTags(publicTags || []);
+        setUserTags(userTags || []);
+        setTagsModalOpen(true);
 
-  } catch (err) {
-    setPublicTags(["Error loading tags"]);
-    setTagsModalOpen(true);
-  }
-};
+      } catch (err) {
+        setPublicTags(["Error loading tags"]);
+        setUserTags(["Error loading tags"]);
+        setTagsModalOpen(true);
+      }
+    };
 
 
 // ArticlesList.tsx – nový return blok
@@ -703,71 +709,114 @@ return (
     </div>
   )}
 
-    {/* TAGS MODAL */}
-  <Dialog open={tagsModalOpen} onOpenChange={setTagsModalOpen}>
-    <DialogContent
-      className="
-        max-w-md 
-        rounded-3xl 
-        bg-white/90 
-        backdrop-blur-xl 
-        p-8 
-        shadow-2xl
-        border border-[hsl(var(--border))]
-      "
-    >
-      <DialogHeader className="text-center">
-        <DialogTitle className="text-3xl font-semibold text-[hsl(var(--foreground))] tracking-tight">
-          Public Tags
-        </DialogTitle>
-        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          Tags visible to all users
-        </p>
-      </DialogHeader>
+   {/* TAGS MODAL */}
+    <Dialog open={tagsModalOpen} onOpenChange={setTagsModalOpen}>
+      <DialogContent
+        className="
+          max-w-md 
+          rounded-3xl 
+          bg-white/90 
+          backdrop-blur-xl 
+          p-8 
+          shadow-2xl
+          border border-[hsl(var(--border))]
+        "
+      >
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-3xl font-semibold text-[hsl(var(--foreground))] tracking-tight">
+            Article Tags
+          </DialogTitle>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+            Public & personal tags attached to this article
+          </p>
+        </DialogHeader>
 
-      <div className="mt-6 text-center">
-        {publicTags.length > 0 ? (
-          <div className="flex flex-wrap justify-center gap-3">
-            {publicTags.map((tag, i) => (
-              <span
-                key={i}
-                className="
-                  px-4 py-1.5 
-                  bg-[hsl(var(--accent))] 
-                  text-[hsl(var(--foreground))] 
-                  rounded-full 
-                  text-sm 
-                  border border-[hsl(var(--border))]
-                  shadow-sm
-                "
-              >
-                {tag}
-              </span>
-            ))}
+        {/* PUBLIC TAGS */}
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] text-center">
+            Public Tags
+          </h3>
+
+          <div className="mt-3 text-center">
+            {publicTags.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-3">
+                {publicTags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="
+                      px-4 py-1.5 
+                      bg-[hsl(var(--accent))] 
+                      text-[hsl(var(--foreground))] 
+                      rounded-full 
+                      text-sm 
+                      border border-[hsl(var(--border))]
+                      shadow-sm
+                    "
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <i className="text-[hsl(var(--muted-foreground))]">
+                No public tags available
+              </i>
+            )}
           </div>
-        ) : (
-          <i className="text-[hsl(var(--muted-foreground))]">
-            No public tags found
-          </i>
-        )}
-      </div>
+        </div>
 
-      <DialogFooter className="mt-6 flex justify-center">
-        <Button
-          onClick={() => setTagsModalOpen(false)}
-          className="
-            rounded-lg px-8 py-2 
-            bg-[hsl(var(--primary))] 
-            text-[hsl(var(--primary-foreground))] 
-            hover:brightness-110 
-            shadow-md
-          "
-        >
-          Close
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+        <Separator className="my-6" />
+
+        {/* USER TAGS */}
+        <div>
+          <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] text-center">
+            Your Tags
+          </h3>
+
+          <div className="mt-3 text-center">
+            {userTags.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-3">
+                {userTags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="
+                      px-4 py-1.5 
+                      bg-[hsl(var(--primary))/0.15] 
+                      text-[hsl(var(--primary))] 
+                      rounded-full 
+                      text-sm 
+                      border border-[hsl(var(--primary))/0.4]
+                      shadow-sm
+                    "
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <i className="text-[hsl(var(--muted-foreground))]">
+                You have not added any tags
+              </i>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="mt-8 flex justify-center">
+          <Button
+            onClick={() => setTagsModalOpen(false)}
+            className="
+              rounded-lg px-8 py-2 
+              bg-[hsl(var(--primary))] 
+              text-[hsl(var(--primary-foreground))] 
+              hover:brightness-110 
+              shadow-md
+            "
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
   </div>
 );
