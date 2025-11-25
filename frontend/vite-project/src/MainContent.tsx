@@ -1,27 +1,4 @@
 import React, { useState, useEffect, FormEvent } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from "@/components/ui/command";
-
-import { ChevronsUpDown, Check, Info } from "lucide-react";
-import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
-
-import Swal from "sweetalert2";
-
 import ArticlesList from "./ArticlesList";
 import SearchPanel from "./SearchPanel";
 import { Article, Category } from "./types";
@@ -84,38 +61,6 @@ const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
     }
   };
 
-  // 🔧 OPRAVENÝ SEARCH HANDLER – berie data.articles
-  const handleSearchSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("accessToken");
-      const headers: HeadersInit = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
-
-      const res = await fetch(
-        `http://localhost:8000/main/search_articles/?q=${encodeURIComponent(
-          searchQuery
-        )}`,
-        { headers }
-      );
-
-      if (!res.ok) {
-        console.error("Search failed:", res.status);
-        return;
-      }
-
-      const data = await res.json();
-
-      // backend vracia { articles: [...] }
-      const list = Array.isArray(data) ? data : data.articles;
-
-      setArticles(Array.isArray(list) ? list : []);
-    } catch (err) {
-      console.error("Search error:", err);
-    }
-  };
-
   const handleSearch = async (query: string) => {
   setSearchQuery(query);
     try {
@@ -145,7 +90,7 @@ const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
 
     try {
       const res = await fetch(
-        `http://localhost:8000/api/articles/category/${category.id}/`
+        `http://localhost:8000/api/articles/by_category/${category.id}/`
       );
       if (!res.ok) {
         console.error("Category filter failed:", res.status);
@@ -157,15 +102,6 @@ const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const handleShowCategoryInfo = (category: Category) => {
-    Swal.fire({
-      title: category.name,
-      text: category.description,
-      icon: "info",
-      confirmButtonText: "OK",
-    });
   };
 
 return (

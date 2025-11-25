@@ -14,6 +14,15 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { ChevronsUpDown, Info, Check } from "lucide-react";
 import Swal from "sweetalert2";
@@ -34,6 +43,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, onCategorySelect })
   const [categories, setCategories] = useState<Category[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoCategory, setInfoCategory] = useState<Category | null>(null);
 
   useEffect(() => {
     fetch("http://localhost:8000/api/categories/")
@@ -47,22 +58,24 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, onCategorySelect })
     onSearch(query);
   };
 
-    const onCategoryPick = (cat: Category) => {
-    setSelectedCategory(cat);
-    onCategorySelect(cat.id);   // pošleš ID hore
-    onSearch(cat.name);            // hneď spustíš vyhľadávanie (môže byť aj "" ak chceš len podľa kategórie)
-    setOpen(false);
-    };
-
+  const onCategoryPick = (cat: Category) => {
+  setSelectedCategory(cat);
+  onCategorySelect(cat.id);   // pošleš ID hore
+  onSearch(cat.name);            // hneď spustíš vyhľadávanie (môže byť aj "" ak chceš len podľa kategórie)
+  setOpen(false);
+  };
+  
+  const clearCategory = () => {
+    setSelectedCategory(null);
+    onCategorySelect(0);    // alebo null – závisí čo máš hore, zatiaľ 0
+    onSearch("");           // reset search
+  };
 
   const showInfo = (cat: Category) => {
-    Swal.fire({
-      title: cat.name,
-      text: cat.description,
-      icon: "info",
-      confirmButtonText: "OK",
-    });
+    setInfoCategory(cat);
+    setInfoOpen(true);
   };
+
 
 return (
   <div className="w-full max-w-4xl mx-auto">
@@ -83,18 +96,46 @@ return (
         </div>
 
         {selectedCategory && (
-          <div className="mt-3 sm:mt-0 inline-flex items-center gap-2 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--accent))] px-3 py-1.5 text-xs sm:text-[0.8rem] text-[hsl(var(--muted-foreground))] shadow-sm">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[10px] font-semibold text-[hsl(var(--primary-foreground))]">
-              {selectedCategory.name.charAt(0).toUpperCase()}
+        <div className="
+          relative
+          mt-3 sm:mt-0 inline-flex items-center gap-2 
+          rounded-2xl border border-[hsl(var(--border))] 
+          bg-[hsl(var(--accent))] px-3 py-1.5 
+          text-xs sm:text-[0.8rem] text-[hsl(var(--muted-foreground))]
+          shadow-sm
+        ">
+          {/* Ikonka kategórie */}
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full 
+            bg-[hsl(var(--primary))] text-[10px] font-semibold 
+            text-[hsl(var(--primary-foreground))]">
+            {selectedCategory.name.charAt(0).toUpperCase()}
+          </span>
+
+          {/* Text */}
+          <div className="flex flex-col">
+            <span className="font-medium text-[hsl(var(--foreground))]">
+              {selectedCategory.name}
             </span>
-            <div className="flex flex-col">
-              <span className="font-medium text-[hsl(var(--foreground))]">
-                {selectedCategory.name}
-              </span>
-              <span className="truncate">Active category</span>
-            </div>
+            <span className="truncate">Active category</span>
           </div>
+
+          {/* ❌ CLEAR BUTTON */}
+          <button
+            onClick={clearCategory}
+            className="
+              ml-2 h-5 w-5 flex items-center justify-center 
+              rounded-full 
+              text-[hsl(var(--foreground))/0.6]
+              hover:text-[hsl(var(--foreground))] 
+              hover:bg-[hsl(var(--muted))] 
+              transition-all
+            "
+          >
+            ✕
+          </button>
+        </div>
         )}
+
       </div>
 
       {/* BODY */}
@@ -201,7 +242,38 @@ return (
         </div>
       </div>
     </div>
+    <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+      <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+        
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold text-[hsl(var(--foreground))]">
+            {infoCategory?.name}
+          </DialogTitle>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+            Category details
+          </p>
+        </DialogHeader>
+
+        <div className="mt-4">
+          <p className="text-[hsl(var(--foreground))] leading-relaxed">
+            {infoCategory?.description}
+          </p>
+        </div>
+
+        <DialogFooter className="mt-6">
+          <Button
+            onClick={() => setInfoOpen(false)}
+            className="rounded-xl px-6 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110"
+          >
+            Close
+          </Button>
+        </DialogFooter>
+
+      </DialogContent>
+    </Dialog>
+    {/* KONIEC DIALOGU */}
   </div>
+  
 );
 
 
