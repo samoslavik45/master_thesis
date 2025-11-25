@@ -84,37 +84,77 @@ from django.db.models import Q
 
 @api_view(['GET'])
 def search_articles(request):
-    query = request.query_params.get('q', '')
+    query = request.query_params.get('q', '').strip()
 
+    # Search conditions
     base_query = (
         Q(title__icontains=query) |
-        Q(authors__name__icontains=query) |  
+        Q(authors__name__icontains=query) |
         Q(keywords__keyword__icontains=query) |
         Q(userarticletag__tag__name__icontains=query, userarticletag__is_public=True)
     )
 
     if request.user.is_authenticated:
-        private_tags_query = Q(userarticletag__tag__name__icontains=query, userarticletag__user=request.user, userarticletag__is_public=False)
-        articles_query = Article.objects.filter(base_query | private_tags_query)
+        private_tags_query = Q(
+            userarticletag__tag__name__icontains=query,
+            userarticletag__user=request.user,
+            userarticletag__is_public=False
+        )
+        articles_qs = Article.objects.filter(base_query | private_tags_query)
     else:
-        articles_query = Article.objects.filter(base_query)
+        articles_qs = Article.objects.filter(base_query)
 
-    articles = articles_query.distinct().values(
-        'id', 'title', 'content', 'pdf_file', 'created_at'
+    # Prefetch relations
+    articles = (
+        articles_qs
+        .distinct()
+        .prefetch_related("categories", "keywords", "authors")
     )
 
-    articles_list = list(articles)
-    for article in articles_list:
-        keywords = Keyword.objects.filter(articles__id=article['id']).values_list('keyword', flat=True)
-        article['keywords'] = list(keywords)
-        tags = Tag.objects.filter(userarticletag__article__id=article['id']).values_list('name', flat=True)
-        article['tags'] = list(tags)
-        categories = Category.objects.filter(articles__id=article['id']).values_list('name', flat=True)
-        article['categories'] = list(categories)
-        article['authors'] = list(Article.objects.get(id=article['id']).authors.values_list('name', flat=True))
+    # preload category objects for speed
+    categories_map = {
+        c.id: {"id": c.id, "name": c.name, "description": c.description}
+        for c in Category.objects.all()
+    }
 
+    results = []
+    for article in articles:
 
-    return Response({"articles": articles_list})
+        # FIX: extract safe file path
+        file_path = article.pdf_file.name if article.pdf_file else ""
+
+        # remove leading "media/" to match your frontend expectations
+        if file_path.startswith("media/"):
+            file_path = file_path.replace("media/", "", 1)
+
+        results.append({
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "pdf_file": file_path,
+            "created_at": article.created_at,
+
+            # authors (strings)
+            "authors": list(article.authors.values_list("name", flat=True)),
+
+            # keywords (strings)
+            "keywords": [kw.keyword for kw in article.keywords.all()],
+
+            # tags
+            "tags": list(
+                Tag.objects.filter(userarticletag__article=article)
+                .values_list("name", flat=True)
+            ),
+
+            # categories (OBJECTS!)
+            "categories": [
+                categories_map[c.id]
+                for c in article.categories.all()
+                if c.id in categories_map
+            ],
+        })
+
+    return Response({"articles": results})
 
 
 
@@ -223,12 +263,55 @@ def delete_article(request, article_id):
 @api_view(['GET'])
 def user_articles(request):
     user = request.user
-    articles = Article.objects.filter(added_by=user)
-    serializer = ArticleSerializer(articles, many=True)
-    return JsonResponse(serializer.data, safe=False)
+    articles = (
+        Article.objects
+        .filter(added_by=user)
+        .prefetch_related("categories", "keywords", "authors")
+    )
 
-from rest_framework.decorators import api_view
-from .serializers import ArticleSerializer
+    # preload category objects
+    categories_map = {
+        c.id: {"id": c.id, "name": c.name, "description": c.description}
+        for c in Category.objects.all()
+    }
+
+    results = []
+    for article in articles:
+
+        # pdf path fix
+        file_path = article.pdf_file.name if article.pdf_file else ""
+        if file_path.startswith("media/"):
+            file_path = file_path.replace("media/", "", 1)
+
+        results.append({
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "pdf_file": file_path,
+            "created_at": article.created_at,
+
+            # authors (string[])
+            "authors": list(article.authors.values_list("name", flat=True)),
+
+            # keywords (string[])
+            "keywords": [kw.keyword for kw in article.keywords.all()],
+
+            # categories (object[])
+            "categories": [
+                categories_map[c.id]
+                for c in article.categories.all()
+                if c.id in categories_map
+            ],
+
+            # you also have tags in profile, so add them
+            "tags": list(
+                Tag.objects.filter(userarticletag__article=article)
+                .values_list("name", flat=True)
+            ),
+        })
+
+    return Response(results)
+
 
 def generate_unique_tag():
     while True:
@@ -425,9 +508,64 @@ def like_article(request, article_id):
 @permission_classes([IsAuthenticated])
 def liked_articles(request):
     user = request.user
-    liked_articles = ArticleLike.objects.filter(user=user).select_related('article').all()
-    serializer = ArticleSerializer([like.article for like in liked_articles], many=True, context={'request': request})
-    return Response(serializer.data)
+
+    # get liked article objects
+    liked = (
+        ArticleLike.objects
+        .filter(user=user)
+        .select_related('article')
+    )
+
+    articles = (
+        Article.objects
+        .filter(id__in=[l.article.id for l in liked])
+        .prefetch_related("categories", "keywords", "authors")
+    )
+
+    # preload category metadata
+    categories_map = {
+        c.id: {"id": c.id, "name": c.name, "description": c.description}
+        for c in Category.objects.all()
+    }
+
+    results = []
+
+    for article in articles:
+
+        # file path
+        file_path = article.pdf_file.name if article.pdf_file else ""
+        if file_path.startswith("media/"):
+            file_path = file_path.replace("media/", "", 1)
+
+        results.append({
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "pdf_file": file_path,
+            "created_at": article.created_at,
+
+            # authors (strings)
+            "authors": list(article.authors.values_list("name", flat=True)),
+
+            # keywords (strings)
+            "keywords": [kw.keyword for kw in article.keywords.all()],
+
+            # categories (objects)
+            "categories": [
+                categories_map[c.id]
+                for c in article.categories.all()
+                if c.id in categories_map
+            ],
+
+            # liked articles also need tags (like profile shows)
+            "tags": list(
+                Tag.objects.filter(userarticletag__article=article)
+                .values_list("name", flat=True)
+            ),
+        })
+
+    return Response(results)
+
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -775,22 +913,53 @@ from django.conf import settings
     
 class ArticlesByCategory(APIView):
     """
-    View to return articles by category with category names and keyword names.
+    Return articles by category.
+    Ensures categories are returned as objects {id, name, description}
+    and keywords as simple strings.
     """
+
     def get(self, request, category_id):
-        articles = Article.objects.filter(categories__id=category_id).prefetch_related('categories', 'keywords')
-        data = ArticleSerializer(articles, many=True).data
 
+        # Fetch articles + prefetch related objects
+        articles = (
+            Article.objects
+            .filter(categories__id=category_id)
+            .prefetch_related('categories', 'keywords')
+        )
 
-        for article in data:
-            if article['pdf_file'].startswith('/media/'):
-                article['pdf_file'] = article['pdf_file'].replace('/media/', '', 1)
+        serialized = ArticleSerializer(articles, many=True).data
 
-            article['categories'] = [Category.objects.get(id=cat_id).name for cat_id in article['categories']]
+        # Preload category + keyword dictionaries (super fast)
+        categories_map = {
+            c.id: {"id": c.id, "name": c.name, "description": c.description}
+            for c in Category.objects.all()
+        }
+        keywords_map = {
+            k.id: k.keyword
+            for k in Keyword.objects.all()
+        }
 
-            article['keywords'] = [Keyword.objects.get(id=kw_id).keyword for kw_id in article['keywords']]
+        # Transform serialized result to correct frontend shape
+        for article in serialized:
 
-        return Response(data, status=status.HTTP_200_OK)
+            # Remove "/media/" prefix
+            if article["pdf_file"].startswith("/media/"):
+                article["pdf_file"] = article["pdf_file"].replace("/media/", "", 1)
+
+            # Replace category IDs -> category objects
+            article["categories"] = [
+                categories_map[cat_id] for cat_id in article["categories"]
+                if cat_id in categories_map
+            ]
+
+            # Replace keyword IDs -> keyword string
+            article["keywords"] = [
+                keywords_map[kw_id] for kw_id in article["keywords"]
+                if kw_id in keywords_map
+            ]
+
+        return Response(serialized, status=status.HTTP_200_OK)
+
 
     
 @api_view(['POST'])
