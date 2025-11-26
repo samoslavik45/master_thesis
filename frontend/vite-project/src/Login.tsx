@@ -43,8 +43,8 @@ export default function LoginModal({
 
     if (res.ok && data.access) {
       localStorage.setItem("accessToken", data.access);
-      setIsLoggedIn(true);
-      onOpenChange(false); // 🔥 zatvori modal po logine
+      setIsLoggedIn(true);   // 🔥 spustí prerender App + Profile
+      onOpenChange(false);   // zavrie modal
     } else {
       setMsg("Incorrect login information.");
     }

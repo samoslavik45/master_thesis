@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Article, Category, EditedKeyword } from './types';
-import './EditArticleModal.css';
 import KeywordsModal from './KeywordsModal';
 import Swal from 'sweetalert2';
 import {

@@ -1,5 +1,4 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from "react";
-import "./AddArticleModal.css";
 import { Category, EditedKeyword } from "./types";
 import KeywordsModal from "./KeywordsModal";
 import AbstractModal from "./AbstractModal";

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import InviteButton from './InviteButton'; 
-import './GroupDetail.css';
 import Swal from 'sweetalert2';
 import {
   Card,

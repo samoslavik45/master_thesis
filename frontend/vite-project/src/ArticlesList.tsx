@@ -9,16 +9,10 @@ import Swal from "sweetalert2";
 
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -75,6 +69,9 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [publicTags, setPublicTags] = useState<string[]>([]);
   const [userTags, setUserTags] = useState<string[]>([]);
+  const [likeDialogOpen, setLikeDialogOpen] = useState(false);
+  const [likeGroupDialogOpen, setLikeGroupDialogOpen] = useState(false);
+  const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
 
   const toggleAbstract = (id: number) => {
     setShowFullAbstract((prev) =>
@@ -109,132 +106,218 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
 
   /* ----------- LIKE HANDLERS ----------- */
 
-  const handleLike = async (articleId: number) => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      return Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Login required.",
-        scrollbarPadding: false,
+  const openLikeDialog = (articleId: number) => {
+    setSelectedArticleId(articleId);
+    setLikeDialogOpen(true);
+  };
+
+  const openLikeGroupDialog = (articleId: number) => {
+    setSelectedArticleId(articleId);
+    setLikeGroupDialogOpen(true);
+  };
+
+const confirmLike = async () => {
+  if (!selectedArticleId) return;
+
+  const token = localStorage.getItem("accessToken");
+
+  if (!token) {
+    toast.error("Login required to like articles.", {
+      position: "top-center",
+      style: {
+        background: "rgba(255,255,255,0.95)",
+        color: "hsl(35 25% 15%)",
+        borderRadius: "14px",
+        border: "1px solid hsl(35 30% 82%)",
+        backdropFilter: "blur(8px)",
+      },
+    });
+    setLikeDialogOpen(false);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `http://localhost:8000/api/articles/like/${selectedArticleId}/`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (res.status === 409) {
+      toast("You already liked this article.", {
+        position: "top-center",
+        style: {
+          background: "rgba(255,255,255,0.95)",
+          color: "hsl(35 25% 15%)",
+          borderRadius: "14px",
+          border: "1px solid hsl(35 30% 82%)",
+          backdropFilter: "blur(8px)",
+        },
       });
+      setLikeDialogOpen(false);
+      return;
     }
 
-    try {
-      const res = await fetch(
-        `http://localhost:8000/api/articles/like/${articleId}/`,
+    if (!res.ok) throw new Error();
+
+    toast.success("Article liked successfully!", {
+      position: "top-center",
+      style: {
+        background: "rgba(255,255,255,0.95)",
+        color: "hsl(140 30% 20%)",
+        borderRadius: "14px",
+        border: "1px solid hsl(140 40% 80%)",
+        backdropFilter: "blur(8px)",
+      },
+    });
+  } catch {
+    toast.error("Unable to like this article.", {
+      position: "top-center",
+      style: {
+        background: "rgba(255,255,255,0.95)",
+        color: "hsl(0 60% 30%)",
+        borderRadius: "14px",
+        border: "1px solid hsl(0 60% 80%)",
+        backdropFilter: "blur(8px)",
+      },
+    });
+  }
+
+  setLikeDialogOpen(false);
+};
+
+
+
+
+const confirmGroupLike = async (groupId: number) => {
+  if (!selectedArticleId) return;
+
+  const token = localStorage.getItem("accessToken");
+
+  if (!token) {
+    toast.error("Login required to like as group.", {
+      position: "top-center",
+      style: {
+        background: "rgba(255,255,255,0.95)",
+        color: "hsl(35 25% 15%)",
+        borderRadius: "14px",
+        border: "1px solid hsl(35 30% 82%)",
+        backdropFilter: "blur(8px)",
+      },
+    });
+    setLikeGroupDialogOpen(false);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `http://localhost:8000/api/groups/${groupId}/like_article/`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ article_id: selectedArticleId }),
+      }
+    );
+
+    if (res.status === 409) {
+      toast("This group already liked this article.", {
+        position: "top-center",
+        style: {
+          background: "rgba(255,255,255,0.95)",
+          color: "hsl(35 25% 15%)",
+          borderRadius: "14px",
+          border: "1px solid hsl(35 30% 82%)",
+          backdropFilter: "blur(8px)",
+        },
+      });
+      setLikeGroupDialogOpen(false);
+      return;
+    }
+
+    if (!res.ok) throw new Error();
+
+    toast.success("Group like added!", {
+      position: "top-center",
+      style: {
+        background: "rgba(255,255,255,0.95)",
+        color: "hsl(140 30% 20%)",
+        borderRadius: "14px",
+        border: "1px solid hsl(140 40% 80%)",
+        backdropFilter: "blur(8px)",
+      },
+    });
+  } catch {
+    toast.error("Group like failed.", {
+      position: "top-center",
+      style: {
+        background: "rgba(255,255,255,0.95)",
+        color: "hsl(0 60% 30%)",
+        borderRadius: "14px",
+        border: "1px solid hsl(0 60% 80%)",
+        backdropFilter: "blur(8px)",
+      },
+    });
+  }
+
+  setLikeGroupDialogOpen(false);
+};
+
+
+
+
+
+
+const showTags = async (articleId: number) => {
+  const token = localStorage.getItem("accessToken");
+
+  try {
+    let publicTags: string[] = [];
+    let userTags: string[] = [];
+
+    if (token) {
+      // PRIHLÁSENÝ – načítame public aj user tags
+      const response = await fetch(
+        `http://localhost:8000/api/article/${articleId}/tags/`,
         {
-          method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      // už je liknutý
-      if (res.status === 409) {
-        return Swal.fire({
-          icon: "info",
-          title: "Notice",
-          text: "You already liked this article.",
-          scrollbarPadding: false,
-        });
-      }
+      if (!response.ok) throw new Error("Failed to load tags");
 
-      if (!res.ok) throw new Error();
-
-      Swal.fire({
-        icon: "success",
-        title: "Success",
-        text: "Article liked!",
-        scrollbarPadding: false,
-      });
-    } catch {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Problem while liking article.",
-        scrollbarPadding: false,
-      });
-    }
-  };
-
-
-  const handleLikeAsGroup = async (articleId: number, groupId: number) => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      return Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Login required.",
-        scrollbarPadding: false,
-      });
-    }
-
-    try {
-      const res = await fetch(
-        `http://localhost:8000/api/groups/${groupId}/like_article/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ article_id: articleId }),
-        }
+      const data = await response.json();
+      publicTags = data.publicTags || [];
+      userTags = data.userTags || [];
+    } else {
+      // NEPRIHLÁSENÝ – načítame LEN public tags
+      const response = await fetch(
+        `http://localhost:8000/api/article/${articleId}/public_tags/`
       );
 
-      if (res.status === 409) {
-        return Swal.fire({
-          icon: "info",
-          title: "Notice",
-          text: "This group already liked this article.",
-          scrollbarPadding: false,
-        });
-      }
+      if (!response.ok) throw new Error("Failed to load public tags");
 
-      if (!res.ok) throw new Error();
-
-      Swal.fire({
-        icon: "success",
-        title: "Success",
-        text: "Liked as group!",
-        scrollbarPadding: false,
-      });
-    } catch {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Problem liking article as group.",
-        scrollbarPadding: false,
-      });
+      const data = await response.json();
+      publicTags = data.publicTags || [];
+      userTags = ["Login required to see personal tags"];
     }
-  };
+
+    setPublicTags(publicTags);
+    setUserTags(userTags);
+    setTagsModalOpen(true);
+
+  } catch (err) {
+    setPublicTags(["Error loading tags"]);
+    setUserTags(["Error loading tags"]);
+    setTagsModalOpen(true);
+  }
+};
 
 
-const showTags = async (articleId: number) => {
-      const token = localStorage.getItem('accessToken');
-      try {
-        const response = await fetch(`http://localhost:8000/api/article/${articleId}/tags/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch tags");
-
-        const { publicTags, userTags } = await response.json();
-        setPublicTags(publicTags || []);
-        setUserTags(userTags || []);
-        setTagsModalOpen(true);
-
-      } catch (err) {
-        setPublicTags(["Error loading tags"]);
-        setUserTags(["Error loading tags"]);
-        setTagsModalOpen(true);
-      }
-    };
-
-
-// ArticlesList.tsx – nový return blok
 
   // ArticlesList.tsx – nový return blok
 return (
@@ -437,64 +520,36 @@ return (
                         <div className="flex items-center gap-3 mt-4">
                           
                           {/* GROUP LIKE */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="
-                                  h-9 px-4 text-[0.8rem] rounded-xl
-                                  bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--muted))]
-                                  border border-[hsl(var(--border))]
-                                  text-[hsl(var(--foreground))]
-                                  shadow-[0_2px_6px_rgba(0,0,0,0.06)]
-                                  hover:shadow-[0_3px_8px_rgba(0,0,0,0.08)]
-                                  hover:brightness-[1.06]
-                                  transition-all duration-200
-                                "
-                              >
-                                Group ❤️
-                              </Button>
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent
-                              className="
-                                rounded-xl bg-[hsl(var(--popover))]
-                                border border-[hsl(var(--border))]
-                                shadow-xl backdrop-blur-xl p-1
-                              "
-                            >
-                              {groups.map((g) => (
-                                <DropdownMenuItem
-                                  key={g.id}
-                                  onClick={() => handleLikeAsGroup(article.id, g.id)}
-                                  className="
-                                    rounded-lg px-3 py-2 text-sm
-                                    hover:bg-[hsl(var(--muted))]
-                                    cursor-pointer
-                                  "
-                                >
-                                  {g.name}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Button
+                            variant="outline"
+                            className="
+                              h-9 px-4 text-[0.8rem] rounded-xl
+                              bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--muted))] 
+                              border border-[hsl(var(--border))]
+                              text-[hsl(var(--foreground))]
+                              shadow-[0_2px_6px_rgba(0,0,0,0.06)]
+                              hover:shadow-[0_3px_8px_rgba(0,0,0,0.08)]
+                              hover:brightness-[1.06]
+                              transition-all duration-200
+                            "
+                            onClick={() => openLikeGroupDialog(article.id)}
+                          >
+                            Group ❤️
+                          </Button>
 
                           {/* HEART LIKE */}
                           <button
-                            onClick={() => handleLike(article.id)}
+                            onClick={() => openLikeDialog(article.id)}
                             className="
                               h-10 w-10 rounded-full
                               bg-[hsl(var(--primary))/0.12]
                               text-[hsl(var(--primary))]
                               flex items-center justify-center
-                              text-lg shadow-[0_2px_6px_rgba(0,0,0,0.08)]
-                              backdrop-blur-sm
-                              hover:bg-[hsl(var(--primary))/0.18]
-                              hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)]
+                              text-lg shadow
                               hover:scale-[1.08]
-                              transition-all duration-200
+                              transition-all
                             "
-                          >
+                            >
                             ❤️
                           </button>
                         </div>
@@ -817,6 +872,93 @@ return (
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* LIKE MODAL */}
+    <Dialog open={likeDialogOpen} onOpenChange={setLikeDialogOpen}>
+      <DialogContent className="rounded-3xl p-8 max-w-md bg-[hsl(var(--card))] border border-[hsl(var(--border))]">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-semibold text-center text-[hsl(var(--foreground))]">
+            Like this article?
+          </DialogTitle>
+        </DialogHeader>
+
+        <p className="text-center text-sm text-[hsl(var(--muted-foreground))] mt-2">
+          Do you want to like this article?
+        </p>
+
+        <DialogFooter className="mt-6">
+          <div className="flex w-full justify-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => setLikeDialogOpen(false)}
+              className="
+                px-6 rounded-xl
+                border-[hsl(var(--border))]
+                bg-[hsl(var(--card))]
+                text-[hsl(var(--foreground))]
+                hover:bg-[hsl(var(--muted))]
+              "
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={confirmLike}
+              className="
+                px-6 rounded-xl
+                bg-[hsl(var(--primary))]
+                text-[hsl(var(--primary-foreground))]
+                shadow-md
+                hover:brightness-110
+              "
+            >
+              ❤️ Like
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+
+    {/* GROUP LIKE MODAL */}
+    <Dialog open={likeGroupDialogOpen} onOpenChange={setLikeGroupDialogOpen}>
+      <DialogContent className="rounded-3xl p-8 max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-semibold text-center">
+            Like as Group
+          </DialogTitle>
+        </DialogHeader>
+
+        <p className="text-center text-sm text-gray-600 mt-2 mb-6">
+          Select a group that should like this article.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          {groups.map((group) => (
+            <Button
+              key={group.id}
+              variant="outline"
+              onClick={() => confirmGroupLike(group.id)}
+              className="w-full rounded-xl py-3 text-[0.9rem]"
+            >
+              {group.name}
+            </Button>
+          ))}
+        </div>
+
+        <DialogFooter className="flex justify-center mt-6">
+          <Button
+            variant="outline"
+            onClick={() => setLikeGroupDialogOpen(false)}
+            className="px-6 rounded-xl"
+          >
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+
 
   </div>
 );

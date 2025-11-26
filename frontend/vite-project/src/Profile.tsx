@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import "./Profile.css";
 import { Article, Category } from "./types";
 import AddArticleModal from "./AddArticleModal";
 import Swal from "sweetalert2";
@@ -19,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 
 import {
   Dialog,
@@ -47,52 +45,15 @@ const Profile = () => {
     const [showEditModal, setShowEditModal] = useState<boolean>(false);
     const [currentArticleToEdit, setCurrentArticleToEdit] = useState<number | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false); 
-    const navigate = useNavigate(); 
-    const { openLogin } = useContext(LoginContext);
+    const { isLoggedIn, setIsLoggedIn, openLogin } = useContext(LoginContext);
     const [tagsModalOpen, setTagsModalOpen] = useState(false);
     const [publicTags, setPublicTags] = useState<string[]>([]);
     const [userTags, setUserTags] = useState<string[]>([]);
 
+    const loadAll = async () => {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
 
-
-    const redirectToLogin = () => {
-      navigate('/login'); 
-    };
-
-    const checkTokenValidity = () => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const expiry = new Date(payload.exp * 1000);
-        return expiry > new Date(); 
-      }
-      return false;
-    };
-
-    useEffect(() => {
-      const token = localStorage.getItem("accessToken");
-
-      // helper: check token validity
-      const isTokenValid = () => {
-        if (!token) return false;
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          return payload.exp * 1000 > Date.now();
-        } catch {
-          return false;
-        }
-      };
-
-      // 1) Token validity on mount
-      if (!isTokenValid()) {
-        setIsLoggedIn(false);
-        return; // no need to fetch anything else
-      }
-      setIsLoggedIn(true);
-
-      // 2) Fetch everything in parallel
-      const loadAll = async () => {
         const headers = {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -124,21 +85,29 @@ const Profile = () => {
         }
       };
 
-      loadAll();
 
-      // 3) Token checker interval
-      const intervalId = setInterval(() => {
-        if (!isTokenValid()) {
-          clearInterval(intervalId);
+    useEffect(() => {
+      const token = localStorage.getItem("accessToken");
+
+      if (!token) {
+        setIsLoggedIn(false);
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload.exp * 1000 < Date.now()) {
           setIsLoggedIn(false);
+          return;
         }
-      }, 30000);
+      } catch {
+        setIsLoggedIn(false);
+        return;
+      }
 
-      return () => clearInterval(intervalId);
-    }, []);
-
-    
-    
+      setIsLoggedIn(true);
+      loadAll(); // load everything once login is valid
+    }, [isLoggedIn]);
     
     const handleDeleteArticle = async (articleId: number) => {
       try {

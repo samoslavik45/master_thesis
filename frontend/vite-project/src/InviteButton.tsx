@@ -1,5 +1,4 @@
 import React from 'react';
-import './InviteButton.css';
 import Swal from 'sweetalert2';
 
 interface InviteButtonProps {

@@ -1,74 +1,71 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import ArticlesList from "./ArticlesList";
 import SearchPanel from "./SearchPanel";
 import { Article, Category } from "./types";
+import { LoginContext } from "./App";
 
-interface MainContentProps {
-  setIsLoggedIn: (value: boolean) => void;
-}
+const MainContent: React.FC = () => {
+  const { isLoggedIn } = useContext(LoginContext);
 
-const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [articles, setArticles] = useState<Article[]>([]);
   const [groups, setGroups] = useState<Array<{ id: number; name: string }>>([]);
-
-  // CATEGORY STATE
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null
-  );
-  const [categoryOpen, setCategoryOpen] = useState(false);
 
-  // LOGIN STATE
-  const [isLoggedIn, setIsLoggedInState] = useState(false);
-
-  // FETCH USER + CATEGORIES + GROUPS
+  // CATEGORIES – načítaj raz
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    const loggedIn = !!token;
-    setIsLoggedInState(loggedIn);
-    setIsLoggedIn(loggedIn);
-
-    if (token) {
-      fetchUserGroups(token);
-    }
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/categories/");
+        if (!res.ok) throw new Error("Failed to fetch categories");
+        const data: Category[] = await res.json();
+        setCategories(data);
+      } catch (err) {
+        console.error("Error loading categories:", err);
+      }
+    };
 
     fetchCategories();
-  }, [setIsLoggedIn]);
+  }, []);
 
-  const fetchUserGroups = async (token: string) => {
-    try {
-      const res = await fetch("http://localhost:8000/api/groups/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  // GROUPS – pri zmene loginu
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
 
-      if (!res.ok) return;
-      const data = await res.json();
-      setGroups(data);
-    } catch (e) {
-      console.error(e);
+    if (!isLoggedIn || !token) {
+      setGroups([]);
+      return;
     }
-  };
 
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch("http://localhost:8000/api/categories/");
-      if (!res.ok) throw new Error("Failed to fetch categories");
-      const data: Category[] = await res.json();
-      setCategories(data);
-    } catch (err) {
-      console.error("Error loading categories:", err);
-    }
-  };
+    const fetchUserGroups = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/groups/", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        setGroups(data);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    fetchUserGroups();
+  }, [isLoggedIn]);
 
   const handleSearch = async (query: string) => {
-  setSearchQuery(query);
+    setSearchQuery(query);
     try {
       const token = localStorage.getItem("accessToken");
-      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: HeadersInit = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
 
       const res = await fetch(
-        `http://localhost:8000/main/search_articles/?q=${encodeURIComponent(query)}`,
+        `http://localhost:8000/main/search_articles/?q=${encodeURIComponent(
+          query
+        )}`,
         { headers }
       );
 
@@ -82,11 +79,16 @@ const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
     }
   };
 
-
-  // CATEGORY SELECT HANDLER
-  const handleSelectCategory = async (category: Category) => {
-    setSelectedCategory(category);
-    setCategoryOpen(false);
+  const handleSelectCategory = async (category: Category | null) => {
+    if (!category) {
+      // zrušený filter kategórie – môžeš napr. znovu spustiť posledný search
+      if (searchQuery) {
+        handleSearch(searchQuery);
+      } else {
+        setArticles([]);
+      }
+      return;
+    }
 
     try {
       const res = await fetch(
@@ -97,50 +99,44 @@ const MainContent: React.FC<MainContentProps> = ({ setIsLoggedIn }) => {
         return;
       }
       const data = await res.json();
-      // tu endpoint vracia priamo pole článkov
       setArticles(Array.isArray(data) ? data : data.articles ?? []);
     } catch (err) {
       console.error(err);
     }
   };
 
-return (
-  <div className="w-full flex flex-col items-center pt-10 pb-10 text-[hsl(var(--foreground))]">
+  return (
+    <div className="w-full flex flex-col items-center pt-10 pb-10 text-[hsl(var(--foreground))]">
+      {/* TITLE */}
+      <div className="text-center mt-8 mb-6">
+        <h1 className="text-4xl font-bold tracking-tight text-[hsl(var(--foreground))]">
+          Article searching database
+        </h1>
+        <p className="text-lg mt-2 text-[hsl(var(--muted-foreground))]">
+          Find the best articles on various topics right here.
+        </p>
+      </div>
 
-    {/* TITLE */}
-    <div className="text-center mt-8 mb-6">
-      <h1 className="text-4xl font-bold tracking-tight text-[hsl(var(--foreground))]">
-        Article searching database
-      </h1>
-      <p className="text-lg mt-2 text-[hsl(var(--muted-foreground))]">
-        Find the best articles on various topics right here.
-      </p>
+      {/* SEARCH + FILTER PANEL */}
+      <div>
+        <SearchPanel
+          onSearch={handleSearch}
+          onCategorySelect={handleSelectCategory}
+          categories={categories}
+        />
+      </div>
+
+      {/* ARTICLES LIST */}
+      <div className="w-full mt-10">
+        <ArticlesList
+          isLoggedIn={isLoggedIn}
+          articles={articles}
+          groups={groups}
+          categories={categories}
+        />
+      </div>
     </div>
-
-    {/* SEARCH + FILTER PANEL */}
-    <div>
-    <SearchPanel
-      onSearch={handleSearch}
-      onCategorySelect={(categoryId) => {
-        const category = categories.find(c => c.id === categoryId);
-        if (category) handleSelectCategory(category);
-      }}
-    />
-    </div>
-
-
-    {/* ARTICLES LIST */}
-    <div className="w-full mt-10">
-      <ArticlesList
-        isLoggedIn={isLoggedIn}
-        articles={articles}
-        groups={groups}
-        categories={categories}
-      />
-    </div>
-  </div>
-);
-
+  );
 };
 
 export default MainContent;
