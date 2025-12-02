@@ -72,6 +72,8 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   const [likeDialogOpen, setLikeDialogOpen] = useState(false);
   const [likeGroupDialogOpen, setLikeGroupDialogOpen] = useState(false);
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
+  const [selectedSimilar, setSelectedSimilar] = useState<any | null>(null);
+
 
   const toggleAbstract = (id: number) => {
     setShowFullAbstract((prev) =>
@@ -317,6 +319,19 @@ const showTags = async (articleId: number) => {
   }
 };
 
+const handleOpenSimilarArticle = (targetId: number) => {
+  // rozbaliť cieľový článok
+  setExpanded((prev) =>
+    prev.includes(targetId) ? prev : [...prev, targetId]
+  );
+
+  // scroll na kartu článku (ak sa nachádza v zozname)
+  const el = document.getElementById(`article-${targetId}`);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+};
+
 
 
   // ArticlesList.tsx – nový return blok
@@ -367,6 +382,7 @@ return (
         return (
           <div
             key={article.id}
+            id={`article-${article.id}`}
             className={`${wrapperBase} ${isExpanded ? "" : wrapperHoverClosed}`}
           >
             {/* Glow */}
@@ -402,10 +418,12 @@ return (
                 <h1 className="text-[1.55rem] font-semibold text-[hsl(var(--foreground))] tracking-tight">
                   {article.title}
                 </h1>
+
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                  Click to expand details
+                  {isExpanded ? "Click to collapse" : "Click to expand details"}
                 </p>
               </CardHeader>
+
 
               {isExpanded && (
                 <CardContent className="px-8 pb-10 space-y-8">
@@ -515,45 +533,75 @@ return (
                         </div>
                       </div>
 
-                     {/* LIKE BUTTONS */}
+                      {/* LIKE BUTTONS */}
                       {isLoggedIn && (
-                        <div className="flex items-center gap-3 mt-4">
-                          
+                        <div className="mt-4 flex items-center gap-3">
                           {/* GROUP LIKE */}
                           <Button
                             variant="outline"
+                            onClick={() => openLikeGroupDialog(article.id)}
                             className="
-                              h-9 px-4 text-[0.8rem] rounded-xl
-                              bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--muted))] 
+                              inline-flex items-center gap-2
+                              h-9 px-4 text-xs font-medium tracking-wide
+                              rounded-full
                               border border-[hsl(var(--border))]
+                              bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--muted))]
                               text-[hsl(var(--foreground))]
                               shadow-[0_2px_6px_rgba(0,0,0,0.06)]
-                              hover:shadow-[0_3px_8px_rgba(0,0,0,0.08)]
-                              hover:brightness-[1.06]
+                              hover:shadow-[0_4px_10px_rgba(0,0,0,0.10)]
+                              hover:-translate-y-[1px]
+                              active:translate-y-0
                               transition-all duration-200
                             "
-                            onClick={() => openLikeGroupDialog(article.id)}
                           >
-                            Group ❤️
+                            <span
+                              className="
+                                inline-flex h-6 w-6 items-center justify-center
+                                rounded-full
+                                bg-[hsl(var(--primary))/0.06]
+                                text-[0.8rem]
+                              "
+                            >
+                              🤝
+                            </span>
+                            <span>Like in group</span>
                           </Button>
 
                           {/* HEART LIKE */}
                           <button
                             onClick={() => openLikeDialog(article.id)}
                             className="
-                              h-10 w-10 rounded-full
-                              bg-[hsl(var(--primary))/0.12]
-                              text-[hsl(var(--primary))]
-                              flex items-center justify-center
-                              text-lg shadow
-                              hover:scale-[1.08]
-                              transition-all
+                              group
+                              relative inline-flex items-center justify-center
+                              h-10 w-10
+                              rounded-full
+                              bg-gradient-to-br from-rose-100 via-rose-200 to-rose-300
+                              shadow-[0_2px_6px_rgba(0,0,0,0.10)]
+                              hover:shadow-[0_4px_10px_rgba(0,0,0,0.16)]
+                              text-lg
+                              hover:scale-105 active:scale-95
+                              transition-transform duration-150
+                              focus-visible:outline-none
+                              focus-visible:ring-2
+                              focus-visible:ring-rose-400
+                              focus-visible:ring-offset-2
+                              focus-visible:ring-offset-[hsl(var(--background))]
                             "
-                            >
-                            ❤️
+                          >
+                            <span
+                              className="
+                                absolute inset-0 rounded-full
+                                bg-white/25
+                                opacity-0
+                                group-hover:opacity-100
+                                transition-opacity duration-200
+                              "
+                            />
+                            <span className="relative drop-shadow-sm">❤️</span>
                           </button>
                         </div>
                       )}
+
 
 
                     </div>
@@ -590,75 +638,137 @@ return (
 
                   {/* BUTTONS */}
                   <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-
                     {/* LEFT BUTTONS */}
                     <div className="flex flex-wrap gap-3">
-
                       <Button
                         onClick={() =>
                           window.open(`http://localhost:8000/media/${article.pdf_file}`, "_blank")
                         }
                         className="
-                          rounded-xl px-6
+                          inline-flex items-center gap-2
+                          h-10 px-5 text-sm font-medium
+                          rounded-full
                           bg-[hsl(var(--primary))]
                           text-[hsl(var(--primary-foreground))]
-                          shadow-md
-                          hover:scale-[1.03]
-                          transition-all duration-200
+                          shadow-[0_2px_6px_rgba(0,0,0,0.10)]
+                          hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]
+                          hover:-translate-y-[1px]
+                          active:translate-y-0
+                          antialiased
+                          transform-gpu
+                          transition-transform duration-200
                         "
                       >
-                        Open PDF
+                        <span
+                          className="
+                            inline-flex h-6 w-6 items-center justify-center
+                            rounded-full
+                            bg-[hsl(var(--primary-foreground))/0.16]
+                            text-[0.75rem]
+                          "
+                        >
+                          📄
+                        </span>
+                        <span>Open PDF</span>
                       </Button>
 
                       <Button
                         onClick={() => handlePDFDownload(article.pdf_file)}
                         className="
-                          rounded-xl px-6
+                          inline-flex items-center gap-2
+                          h-10 px-5 text-sm font-medium
+                          rounded-full
                           bg-[hsl(var(--primary))]
                           text-[hsl(var(--primary-foreground))]
-                          shadow-md
-                          hover:scale-[1.03]
-                          transition-all duration-200
+                          shadow-[0_2px_6px_rgba(0,0,0,0.10)]
+                          hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]
+                          hover:-translate-y-[1px]
+                          active:translate-y-0
+                          antialiased
+                          transform-gpu
+                          transition-transform duration-200
                         "
                       >
-                        Download PDF
+                        <span
+                          className="
+                            inline-flex h-6 w-6 items-center justify-center
+                            rounded-full
+                            bg-[hsl(var(--primary-foreground))/0.16]
+                            text-[0.75rem]
+                          "
+                        >
+                          ⬇️
+                        </span>
+                        <span>Download PDF</span>
                       </Button>
-
                     </div>
 
                     {/* RIGHT BUTTONS */}
                     <div className="flex flex-wrap gap-3">
-
                       <Button
                         onClick={() => handlePdfMetadataExport(article.pdf_file)}
                         className="
-                          rounded-xl px-6
+                          inline-flex items-center gap-2
+                          h-10 px-5 text-sm font-medium
+                          rounded-full
                           bg-[hsl(var(--primary))]
                           text-[hsl(var(--primary-foreground))]
-                          shadow-md
-                          hover:scale-[1.03]
-                          transition-all duration-200
+                          shadow-[0_2px_6px_rgba(0,0,0,0.10)]
+                          hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]
+                          hover:-translate-y-[1px]
+                          active:translate-y-0
+                          antialiased
+                          transform-gpu
+                          transition-transform duration-200
                         "
                       >
-                        Export BibTeX
+                        <span
+                          className="
+                            inline-flex h-6 w-6 items-center justify-center
+                            rounded-full
+                            bg-[hsl(var(--primary-foreground))/0.16]
+                            text-[0.75rem]
+                          "
+                        >
+                          📤
+                        </span>
+                        <span>Export BibTeX</span>
                       </Button>
 
                       <Button
                         onClick={() => showTags(article.id)}
                         className="
-                          rounded-xl px-6
+                          inline-flex items-center gap-2
+                          h-10 px-5 text-sm font-medium
+                          rounded-full
                           bg-[hsl(var(--primary))]
                           text-[hsl(var(--primary-foreground))]
-                          shadow-md
-                          hover:scale-[1.03]
-                          transition-all duration-200
+                          shadow-[0_2px_6px_rgba(0,0,0,0.10)]
+                          hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]
+                          hover:-translate-y-[1px]
+                          active:translate-y-0
+                          antialiased
+                          transform-gpu
+                          transition-transform duration-200
                         "
                       >
-                        Show Tags
+                        <span
+                          className="
+                            inline-flex h-6 w-6 items-center justify-center
+                            rounded-full
+                            bg-[hsl(var(--primary-foreground))/0.16]
+                            text-[0.75rem]
+                          "
+                        >
+                          🏷️
+                        </span>
+                        <span>Show Tags</span>
                       </Button>
-
                     </div>
                   </div>
+
+
+
                   
                   <div className="pt-3">
                     <Button
@@ -668,19 +778,37 @@ return (
                         fetchSimilar(article.id);
                       }}
                       className="
-                        rounded-xl px-5
+                        inline-flex items-center gap-2
+                        h-9 px-4 text-xs md:text-sm font-medium
+                        rounded-full
+                        border border-[hsl(var(--border))]
                         bg-[hsl(var(--accent))]
                         text-[hsl(var(--foreground))]
-                        border border-[hsl(var(--border))]
-                        shadow-sm
+                        shadow-[0_2px_6px_rgba(0,0,0,0.06)]
                         hover:bg-[hsl(var(--muted))]
-                        hover:shadow-md
-                        hover:scale-[1.03]
-                        transition-all
+                        hover:shadow-[0_4px_10px_rgba(0,0,0,0.10)]
+                        hover:-translate-y-[1px]
+                        active:translate-y-0
+                        antialiased
+                        transform-gpu
+                        transition-transform transition-shadow transition-colors duration-200
                       "
                     >
-                      {similarShown ? "Hide Similar Articles" : "Show Similar Articles"}
+                      <span
+                        className="
+                          inline-flex h-6 w-6 items-center justify-center
+                          rounded-full
+                          bg-[hsl(var(--primary))/0.06]
+                          text-[0.75rem]
+                        "
+                      >
+                        🔍
+                      </span>
+                      <span className="whitespace-nowrap">
+                        {similarShown ? "Hide Similar Articles" : "Show Similar Articles"}
+                      </span>
                     </Button>
+
                   </div>
 
 
@@ -706,6 +834,7 @@ return (
                             <div
                               key={sim.id}
                               className="
+                                group
                                 p-4 rounded-xl
                                 bg-[hsl(var(--muted))]
                                 border border-[hsl(var(--border))]
@@ -714,10 +843,18 @@ return (
                                 hover:shadow-md 
                                 hover:-translate-y-[1px]
                                 transition-all duration-200
+                                cursor-pointer
                               "
+                              onClick={() => handleOpenSimilarArticle(sim.id)}
                             >
                               {/* TITLE */}
-                              <h4 className="font-semibold text-[hsl(var(--foreground))] text-sm mb-1 leading-tight">
+                              <h4
+                                className="
+                                  font-semibold text-[hsl(var(--foreground))] 
+                                  text-sm mb-1 leading-tight
+                                  group-hover:underline
+                                "
+                              >
                                 {sim.title}
                               </h4>
 
@@ -726,33 +863,84 @@ return (
                                 {sim.authors.join(", ")}
                               </p>
 
-                              {/* BUTTON */}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  window.open(`${sim.pdf_file}`, "_blank")
-                                }}
-                                className="
-                                  rounded-xl px-4 py-[6px]
-                                  bg-[hsl(var(--accent))]
-                                  text-[hsl(var(--foreground))]
-                                  border border-[hsl(var(--border))]
-                                  shadow-sm
-                                  hover:bg-[hsl(var(--muted))]
-                                  hover:shadow-md
-                                  hover:scale-[1.04]
-                                  transition-all duration-200
-                                "
-                              >
-                                Open PDF
-                              </Button>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {/* VIEW DETAILS */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // nespúšťaj click na card
+                                    handleOpenSimilarArticle(sim.id);
+                                  }}
+                                  className="
+                                    inline-flex items-center gap-2
+                                    h-8 px-3 text-[0.75rem] font-medium
+                                    rounded-full
+                                    border border-[hsl(var(--border))]
+                                    bg-[hsl(var(--card))]
+                                    text-[hsl(var(--foreground))]
+                                    shadow-[0_1px_4px_rgba(0,0,0,0.06)]
+                                    hover:bg-[hsl(var(--muted))]
+                                    hover:shadow-[0_2px_8px_rgba(0,0,0,0.10)]
+                                    hover:-translate-y-[1px]
+                                    transition-all duration-200
+                                  "
+                                >
+                                  <span
+                                    className="
+                                      inline-flex h-5 w-5 items-center justify-center
+                                      rounded-full
+                                      bg-[hsl(var(--primary))/0.06]
+                                      text-[0.7rem]
+                                    "
+                                  >
+                                    👁️
+                                  </span>
+                                  <span>View details</span>
+                                </Button>
+
+                                {/* OPEN PDF */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // aby sa neotváral detail pri kliku na PDF
+                                    window.open(`http://localhost:8000/media/${sim.pdf_file}`, "_blank");
+                                  }}
+                                  className="
+                                    inline-flex items-center gap-2
+                                    h-8 px-3 text-[0.75rem] font-medium
+                                    rounded-full
+                                    bg-[hsl(var(--accent))]
+                                    text-[hsl(var(--foreground))]
+                                    border border-[hsl(var(--border))]
+                                    shadow-sm
+                                    hover:bg-[hsl(var(--muted))]
+                                    hover:shadow-md
+                                    hover:-translate-y-[1px]
+                                    transition-all duration-200
+                                  "
+                                >
+                                  <span
+                                    className="
+                                      inline-flex h-5 w-5 items-center justify-center
+                                      rounded-full
+                                      bg-[hsl(var(--primary))/0.06]
+                                      text-[0.7rem]
+                                    "
+                                  >
+                                    📄
+                                  </span>
+                                  <span>Open PDF</span>
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
                       </ScrollArea>
                     </div>
                   )}
+
 
 
                 </CardContent>
@@ -894,14 +1082,15 @@ return (
               className="
                 px-6 rounded-xl
                 border-[hsl(var(--border))]
-                bg-[hsl(var(--card))]
+                bg-[hsl(var(--muted))]
                 text-[hsl(var(--foreground))]
                 hover:bg-[hsl(var(--muted))]
+                hover:brightness-95
+                shadow-sm
               "
             >
               Cancel
             </Button>
-
             <Button
               onClick={confirmLike}
               className="
@@ -919,17 +1108,25 @@ return (
       </DialogContent>
     </Dialog>
 
-
     {/* GROUP LIKE MODAL */}
     <Dialog open={likeGroupDialogOpen} onOpenChange={setLikeGroupDialogOpen}>
-      <DialogContent className="rounded-3xl p-8 max-w-md bg-white">
+      <DialogContent
+        className="
+          rounded-3xl 
+          p-8 
+          max-w-md 
+          bg-[hsl(var(--card))] 
+          border 
+          border-[hsl(var(--border))]
+        "
+      >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold text-center">
+          <DialogTitle className="text-2xl font-semibold text-center text-[hsl(var(--foreground))]">
             Like as Group
           </DialogTitle>
         </DialogHeader>
 
-        <p className="text-center text-sm text-gray-600 mt-2 mb-6">
+        <p className="text-center text-sm text-[hsl(var(--muted-foreground))] mt-2 mb-6">
           Select a group that should like this article.
         </p>
 
@@ -939,7 +1136,17 @@ return (
               key={group.id}
               variant="outline"
               onClick={() => confirmGroupLike(group.id)}
-              className="w-full rounded-xl py-3 text-[0.9rem]"
+              className="
+                w-full 
+                justify-between
+                rounded-xl 
+                py-3 
+                text-[0.9rem]
+                border-[hsl(var(--border))]
+                bg-[hsl(var(--accent))]
+                text-[hsl(var(--foreground))]
+                hover:bg-[hsl(var(--muted))]
+              "
             >
               {group.name}
             </Button>
@@ -950,13 +1157,22 @@ return (
           <Button
             variant="outline"
             onClick={() => setLikeGroupDialogOpen(false)}
-            className="px-6 rounded-xl"
+            className="
+              px-6 rounded-xl
+              border-[hsl(var(--border))]
+              bg-[hsl(var(--muted))]
+              text-[hsl(var(--foreground))]
+              hover:bg-[hsl(var(--muted))]
+              hover:brightness-95
+              shadow-sm
+            "
           >
             Cancel
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
 
 
 
