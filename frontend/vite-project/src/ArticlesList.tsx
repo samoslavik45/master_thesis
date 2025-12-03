@@ -426,7 +426,7 @@ return (
 
 
               {isExpanded && (
-                <CardContent className="px-8 pb-10 space-y-8">
+                <CardContent className="px-8 pb-4 space-y-5">
                   {/* NEW ULTRA-COMPACT METADATA + ACTION BAR */}
                   <div
                     className="
@@ -611,14 +611,21 @@ return (
                   <Separator />
 
                   {/* ABSTRACT */}
-                  <div className="
-                    p-6 rounded-xl shadow-inner
-                    bg-[hsl(var(--muted))]
-                    border border-[hsl(var(--border))]
-                    backdrop-blur-xl
-                  ">
-                    <h4 className="font-bold text-[hsl(var(--foreground))] mb-3">Abstract</h4>
-                    <p className="text-[hsl(var(--foreground))] leading-relaxed text-[0.95rem]">
+                  <div
+                    className="
+                      mt-2                /* blízko pri prvej časti */
+                      p-4                 /* bolo p-6 – menší padding */
+                      rounded-xl 
+                      shadow-inner
+                      bg-[hsl(var(--muted))]
+                      border border-[hsl(var(--border))]
+                      backdrop-blur-xl
+                    "
+                  >
+                    <h4 className="font-bold text-[hsl(var(--foreground))] mb-2">
+                      Abstract
+                    </h4>
+                    <p className="text-[hsl(var(--foreground))] leading-relaxed text-[0.9rem]">
                       {isFullAbstract ? article.content : abstractShort}
                     </p>
 
@@ -626,7 +633,8 @@ return (
                       <button
                         onClick={() => toggleAbstract(article.id)}
                         className="
-                          mt-3 text-sm font-medium 
+                          mt-2              /* bolo mt-3 – bližšie k textu */
+                          text-sm font-medium 
                           text-[hsl(var(--primary))]
                           hover:underline
                         "
@@ -635,6 +643,7 @@ return (
                       </button>
                     )}
                   </div>
+
 
                   {/* BUTTONS */}
                   <div className="flex flex-col md:flex-row justify-between items-start gap-4">
@@ -770,7 +779,7 @@ return (
 
 
                   
-                  <div className="pt-3">
+                  <div className="">
                     <Button
                       variant="outline"
                       onClick={() => {

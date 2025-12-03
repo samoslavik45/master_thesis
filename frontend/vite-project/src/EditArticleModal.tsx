@@ -426,8 +426,8 @@ return (
       </div>
 
       {/* BODY */}
-      <ScrollArea className="max-h-[70vh] px-6 pb-4">
-        <form onSubmit={handleSubmit} className="space-y-6 pt-2">
+      <ScrollArea className="max-h-[70vh] px-4 pb-4">
+        <form onSubmit={handleSubmit} className="space-y-6 pt-2 px-2">
 
           {/* TITLE */}
           <section className="space-y-2">

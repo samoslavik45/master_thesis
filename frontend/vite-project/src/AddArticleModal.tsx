@@ -2,7 +2,6 @@ import React, { useEffect, useState, ChangeEvent, FormEvent } from "react";
 import { Category, EditedKeyword } from "./types";
 import KeywordsModal from "./KeywordsModal";
 import AbstractModal from "./AbstractModal";
-import Swal from "sweetalert2";
 
 import {
   Dialog,
@@ -29,11 +28,6 @@ interface FormState {
   title: string;
   content: string;
   author_name: string;
-}
-
-interface CategoryDetails {
-  name: string;
-  description: string;
 }
 
 const AddArticleModal: React.FC<AddArticleModalProps> = ({
@@ -64,8 +58,20 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
   const [pdfUploaded, setPdfUploaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  // NEW: state pre shadcn “New category” dialog
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [addCategoryError, setAddCategoryError] = useState<string | null>(null);
+  const [categoryResultOpen, setCategoryResultOpen] = useState(false);
 
+  const [submitResultOpen, setSubmitResultOpen] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<"success" | "error">("success");
+  const [submitMessage, setSubmitMessage] = useState<string>("");
+
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const triggerFileSelectPopup = () => fileInputRef.current?.click();
 
   const filteredCategories = categories.filter((category) =>
@@ -133,13 +139,10 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     uploadFormData.append("pdf_file", pdfFile);
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/extract-keywords/",
-        {
-          method: "POST",
-          body: uploadFormData,
-        }
-      );
+      const response = await fetch("http://127.0.0.1:8000/extract-keywords/", {
+        method: "POST",
+        body: uploadFormData,
+      });
 
       const data = await response.json();
       setPdfUploaded(true);
@@ -162,16 +165,15 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           .map((kw: string) => kw.replace(/\s+/g, " ").trim())
           .filter(Boolean);
 
-        // text pre input + badge-y
         setKeywordsText(cleanedKeywords.join(", "));
 
-        // data pre KeywordsModal
-        const formatted: EditedKeyword[] = cleanedKeywords.map((kw: string) => ({
-          id: "",
-          value: kw,
-          selected: true,
-        }));
-
+        const formatted: EditedKeyword[] = cleanedKeywords.map(
+          (kw: string) => ({
+            id: "",
+            value: kw,
+            selected: true,
+          })
+        );
 
         setKeywordsForEditing(formatted);
       } else {
@@ -188,68 +190,59 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
   };
 
   // ---------------------------------------------------------------------------
-  // SweetAlert – pridať novú kategóriu
+  // NEW: shadcn “New category” dialog – otvorenie
   // ---------------------------------------------------------------------------
-  const handleAddCategory = async () => {
-    const { value: formValues } = await Swal.fire<CategoryDetails>({
-      title: "Enter new category details",
-      html:
-        '<input id="swal-input1" class="swal2-input" placeholder="Category Name">' +
-        '<textarea id="swal-input2" class="swal2-textarea" placeholder="Category Description"></textarea>',
-      focusConfirm: false,
-      showCancelButton: true,
-      preConfirm: () => {
-        const name = (document.getElementById("swal-input1") as HTMLInputElement)
-          .value;
-        const description = (
-          document.getElementById("swal-input2") as HTMLTextAreaElement
-        ).value;
-        if (!name || !description) {
-          Swal.showValidationMessage(
-            "You need to write both name and description!"
-          );
-          return;
-        }
-        return { name, description };
-      },
-    });
+  const openAddCategoryDialog = () => {
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+    setAddCategoryError(null);
+    setAddCategoryOpen(true);
+  };
 
-    if (formValues) {
-      try {
-        const response = await fetch("http://localhost:8000/api/categories/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-          },
-          body: JSON.stringify({
-            name: formValues.name,
-            description: formValues.description,
-          }),
-        });
+  // ---------------------------------------------------------------------------
+  // NEW: vytvorenie kategórie cez API
+  // ---------------------------------------------------------------------------
+  const handleConfirmAddCategory = async () => {
+    if (!newCategoryName.trim() || !newCategoryDescription.trim()) {
+      setAddCategoryError("Please fill in both name and description.");
+      return;
+    }
 
-        const result = await response.json();
+    setIsCreatingCategory(true);
+    setAddCategoryError(null);
 
-        if (response.ok) {
-          setCategories((prev) => [...prev, result]);
-          Swal.fire({
-            title: "Success!",
-            text: "New category added successfully!",
-            icon: "success",
-            confirmButtonText: "OK",
-          });
-        } else {
-          Swal.fire({
-            title: "Error!",
-            text: "Failed to add new category.",
-            icon: "error",
-            confirmButtonText: "OK",
-          });
-        }
-      } catch (error: any) {
-        console.error("Failed to add category:", error);
-        alert("Failed to add category: " + error.message);
+    try {
+      const response = await fetch("http://localhost:8000/api/categories/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          description: newCategoryDescription.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setAddCategoryError(
+          result?.detail || "Failed to add new category. Please try again."
+        );
+        return;
       }
+
+      // pridáme novú kategóriu do zoznamu a rovno ju vyberieme
+      setCategories((prev) => [...prev, result]);
+      setSelectedCategory(result.id.toString());
+      setAddCategoryOpen(false);
+      setCategoryResultOpen(true);
+    } catch (error) {
+      console.error("Failed to add category:", error);
+      setAddCategoryError("Unexpected error. Please try again.");
+    } finally {
+      setIsCreatingCategory(false);
     }
   };
 
@@ -269,7 +262,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     setKeywordsChanged(false);
   };
 
-  // ---------------------------------------------------------------------------
+ // ---------------------------------------------------------------------------
   // Submit formulára
   // ---------------------------------------------------------------------------
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -289,18 +282,15 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     });
 
     if (selectedCategory) {
-      // backend očakáva "categories" (aj keď len jednu)
       formDataToSend.append("categories", selectedCategory);
     }
 
     formDataToSend.append("keywords_text", keywordsText);
 
     if (!file) {
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: "Please select a PDF file to upload.",
-      });
+      setSubmitStatus("error");
+      setSubmitMessage("Please select a PDF file to upload.");
+      setSubmitResultOpen(true);
       return;
     }
 
@@ -321,35 +311,26 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        Swal.fire({
-          icon: "error",
-          title: "Upload failed",
-          text: data.error || "Something went wrong, please try again.",
-        });
+        setSubmitStatus("error");
+        setSubmitMessage(
+          data.error || "Something went wrong, please try again."
+        );
+        setSubmitResultOpen(true);
         return;
       }
 
-      Swal.fire({
-        icon: "success",
-        title: "Success!",
-        text: "Article has been successfully posted.",
-      }).then((result) => {
-        if (result.isConfirmed || result.isDismissed) {
-          handleClose();
-          if (onArticleAdded) {
-            onArticleAdded();
-          }
-        }
-      });
+      // success
+      setSubmitStatus("success");
+      setSubmitMessage("Article has been successfully posted.");
+      setSubmitResultOpen(true);
     } catch (error) {
       console.error("Error:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Upload failed",
-        text: "An error occurred, please try again.",
-      });
+      setSubmitStatus("error");
+      setSubmitMessage("An error occurred, please try again.");
+      setSubmitResultOpen(true);
     }
   };
+
 
   if (!show) {
     return null;
@@ -392,8 +373,8 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           </div>
 
           {/* BODY */}
-          <ScrollArea className="max-h-[75vh] px-6 pb-4">
-            <form onSubmit={handleSubmit} className="space-y-6 pt-2">
+          <ScrollArea className="max-h-[75vh] px-4 pb-4">
+            <form onSubmit={handleSubmit} className="space-y-6 pt-2 px-2">
               {/* STEP 1 – PDF FILE */}
               <section className="space-y-3">
                 <Label className="text-[0.7rem] font-medium uppercase tracking-[0.22em] text-[hsl(var(--muted-foreground))]">
@@ -547,7 +528,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={handleAddCategory}
+                        onClick={openAddCategoryDialog}
                         className="
                           rounded-xl px-4 py-2 text-xs font-semibold
                           border-[hsl(var(--primary))/0.6]
@@ -666,7 +647,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          // ak by náhodou neboli v keywordsForEditing, doplníme z keywordsText
                           if (!keywordsForEditing.length && keywordsText) {
                             const fromText: EditedKeyword[] = keywordsText
                               .split(",")
@@ -783,6 +763,92 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
         </DialogContent>
       </Dialog>
 
+      {/* NEW CATEGORY DIALOG (shadcn) */}
+      <Dialog open={addCategoryOpen} onOpenChange={setAddCategoryOpen}>
+        <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+              New category
+            </DialogTitle>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              Define a name and a short description for this category.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+                Name
+              </Label>
+              <Input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Computer Vision"
+                className="
+                  h-10 rounded-xl
+                  border border-[hsl(var(--border))]
+                  bg-[hsl(var(--accent))]
+                  text-sm
+                  shadow-sm
+                  focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))] focus-visible:ring-offset-0
+                "
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+                Description
+              </Label>
+              <Textarea
+                value={newCategoryDescription}
+                onChange={(e) => setNewCategoryDescription(e.target.value)}
+                placeholder="Papers on image recognition, detection, segmentation…"
+                className="
+                  min-h-[90px] rounded-xl
+                  border border-[hsl(var(--border))]
+                  bg-[hsl(var(--accent))]
+                  text-sm
+                  shadow-sm
+                  focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))] focus-visible:ring-offset-0
+                "
+              />
+            </div>
+
+            {addCategoryError && (
+              <p className="text-sm text-[hsl(var(--destructive))]">
+                {addCategoryError}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAddCategoryOpen(false)}
+              className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              onClick={handleConfirmAddCategory}
+              disabled={isCreatingCategory}
+              className="
+                rounded-xl bg-[hsl(var(--primary))]
+                text-[hsl(var(--primary-foreground))]
+                px-5
+                hover:brightness-110
+                disabled:opacity-60 disabled:cursor-not-allowed
+              "
+            >
+              {isCreatingCategory ? "Creating…" : "Create category"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ABSTRACT MODAL */}
       {showAbstractModal && (
         <AbstractModal
@@ -807,6 +873,61 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           setShowKeywordsModal={setShowKeywordsModal}
         />
       )}
+
+      {/* CATEGORY RESULT MODAL */}
+      <Dialog open={categoryResultOpen} onOpenChange={setCategoryResultOpen}>
+        <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+              Category created
+            </DialogTitle>
+
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              Your new category was successfully added and set as the active one.
+            </p>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4">
+            <Button
+              onClick={() => setCategoryResultOpen(false)}
+              className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+            >
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SUBMIT RESULT MODAL */}
+      <Dialog open={submitResultOpen} onOpenChange={setSubmitResultOpen}>
+        <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+              {submitStatus === "success" ? "Article posted" : "Upload failed"}
+            </DialogTitle>
+
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              {submitMessage}
+            </p>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4">
+            <Button
+              onClick={() => {
+                setSubmitResultOpen(false);
+                if (submitStatus === "success") {
+                  handleClose();
+                  if (onArticleAdded) onArticleAdded();
+                }
+              }}
+              className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+            >
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </>
   );
 };

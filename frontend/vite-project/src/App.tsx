@@ -203,19 +203,37 @@ function App() {
                 <div className="ml-4 flex items-center gap-3">
                   {currentUser && (
                     <div className="flex items-center gap-3">
-                      <div
-                        className="
-                          h-8 w-8 rounded-full
-                          bg-[hsl(var(--primary))/0.16]
-                          text-[hsl(var(--primary))]
-                          flex items-center justify-center
-                          text-xs font-semibold
-                          shadow-sm
-                        "
-                      >
-                        {currentUser.first_name.charAt(0).toUpperCase()}
-                        {currentUser.last_name.charAt(0).toUpperCase()}
+                      {/* Avatar / initials with glow ring */}
+                      <div className="relative h-8 w-8">
+                        {/* glow / ring */}
+                        <div
+                          className="
+                            absolute inset-0
+                            rounded-full
+                            bg-[hsl(var(--primary))/0.35]
+                            blur-sm
+                            opacity-80
+                          "
+                          aria-hidden="true"
+                        />
+
+                        {/* actual avatar */}
+                        <div
+                          className="
+                            relative flex h-8 w-8 items-center justify-center
+                            rounded-full
+                            border border-[hsl(var(--primary))/0.5]
+                            bg-[hsl(var(--background))]
+                            text-xs font-semibold tracking-tight
+                            text-[hsl(var(--primary))]
+                            shadow-md
+                          "
+                        >
+                          {currentUser.first_name.charAt(0).toUpperCase()}
+                          {currentUser.last_name.charAt(0).toUpperCase()}
+                        </div>
                       </div>
+
                       <div className="flex flex-col text-right leading-tight">
                         <span className="text-[0.68rem] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
                           Signed in as
@@ -226,6 +244,7 @@ function App() {
                       </div>
                     </div>
                   )}
+
 
                   <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>

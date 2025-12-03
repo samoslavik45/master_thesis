@@ -1,12 +1,9 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Article, Category } from "./types";
 import AddArticleModal from "./AddArticleModal";
-import Swal from "sweetalert2";
 import EditArticleModal from "./EditArticleModal";
-import { useNavigate } from "react-router-dom";
 import { LoginContext } from "./App";
 import { useContext } from "react";
-
 
 import {
   Card,
@@ -18,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+
 
 import {
   Dialog,
@@ -49,6 +48,27 @@ const Profile = () => {
     const [tagsModalOpen, setTagsModalOpen] = useState(false);
     const [publicTags, setPublicTags] = useState<string[]>([]);
     const [userTags, setUserTags] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const [addTagDialogOpen, setAddTagDialogOpen] = useState(false);
+    const [tagArticleId, setTagArticleId] = useState<number | null>(null);
+    const [tagName, setTagName] = useState("");
+    const [tagIsPublic, setTagIsPublic] = useState(false);
+    const [tagSubmitting, setTagSubmitting] = useState(false);
+    const [tagError, setTagError] = useState<string | null>(null);
+
+    const [tagResultOpen, setTagResultOpen] = useState(false);
+    const [tagResultStatus, setTagResultStatus] = useState<"success" | "error">("success");
+    const [tagResultMessage, setTagResultMessage] = useState("");
+
+    const [unlikeConfirmOpen, setUnlikeConfirmOpen] = useState(false);
+    const [unlikeTargetId, setUnlikeTargetId] = useState<number | null>(null);
+    const [unlikeSubmitting, setUnlikeSubmitting] = useState(false);
+
+    const [unlikeResultOpen, setUnlikeResultOpen] = useState(false);
+    const [unlikeResultStatus, setUnlikeResultStatus] = useState<"success" | "error">("success");
+    const [unlikeResultMessage, setUnlikeResultMessage] = useState("");
+
 
     const loadAll = async () => {
         const token = localStorage.getItem("accessToken");
@@ -89,25 +109,37 @@ const Profile = () => {
     useEffect(() => {
       const token = localStorage.getItem("accessToken");
 
-      if (!token) {
-        setIsLoggedIn(false);
-        return;
-      }
-
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        if (payload.exp * 1000 < Date.now()) {
-          setIsLoggedIn(false);
-          return;
+      // helper na validáciu tokenu
+      const isTokenValid = () => {
+        if (!token) return false;
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          return payload.exp * 1000 > Date.now();
+        } catch {
+          return false;
         }
-      } catch {
+      };
+
+      if (!isTokenValid()) {
         setIsLoggedIn(false);
+        setLoading(false);    // ✅ máme overené, že nie je prihlásený
         return;
       }
 
+      // token je OK → používateľ je prihlásený
       setIsLoggedIn(true);
-      loadAll(); // load everything once login is valid
-    }, [isLoggedIn]);
+
+      // načítaj všetko a až potom vypni loading
+      loadAll()
+        .catch((err) => {
+          console.error("Error while loading profile:", err);
+          setIsLoggedIn(false);
+        })
+        .finally(() => {
+          setLoading(false);  // ✅ profil ready (alebo fail, ale už vieme stav)
+        });
+    }, [setIsLoggedIn]);
+
     
     const handleDeleteArticle = async (articleId: number) => {
       try {
@@ -129,50 +161,58 @@ const Profile = () => {
       }
     };
     
-    const unlikeArticle = async (articleId: number) => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        Swal.fire({
-          title: 'Are you sure?',
-          text: "You won't be able to revert this!",
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#3085d6',
-          cancelButtonColor: '#d33',
-          confirmButtonText: 'Yes, delete it!'
-        }).then(async (result) => {
-          if (result.isConfirmed) {
-            try {
-              const response = await fetch(`http://localhost:8000/api/articles/unlike/${articleId}/`, {
-                method: 'DELETE',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-              });
-              if (response.ok) {
-                setLikedArticles(prevArticles => prevArticles.filter(article => article.id !== articleId));
-                Swal.fire(
-                  'Deleted!',
-                  'Artcile has been unliked.',
-                  'success'
-                )
-              } else {
-                console.error('Failed to unlike the article.');
-                Swal.fire(
-                  'Error!',
-                  'Failed to unlike the article.',
-                  'error'
-                )
-              }
-            } catch (error) {
-              console.error('Error:', error);
-            }
-          }
-        });
-      } else {
+  const openUnlikeConfirm = (articleId: number) => {
+    setUnlikeTargetId(articleId);
+    setUnlikeConfirmOpen(true);
+    setUnlikeResultMessage("");
+  };
+
+  const handleConfirmUnlike = async () => {
+    if (!unlikeTargetId) return;
+
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      setUnlikeConfirmOpen(false);
+      setUnlikeResultStatus("error");
+      setUnlikeResultMessage("You must be logged in to unlike an article.");
+      setUnlikeResultOpen(true);
+      return;
+    }
+
+    setUnlikeSubmitting(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/articles/unlike/${unlikeTargetId}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to unlike the article.");
       }
-    };
+
+      setLikedArticles((prevArticles) =>
+        prevArticles.filter((article) => article.id !== unlikeTargetId)
+      );
+
+      setUnlikeResultStatus("success");
+      setUnlikeResultMessage("Article has been removed from favourites.");
+    } catch (error) {
+      console.error("Error:", error);
+      setUnlikeResultStatus("error");
+      setUnlikeResultMessage("Failed to unlike the article. Please try again.");
+    } finally {
+      setUnlikeSubmitting(false);
+      setUnlikeConfirmOpen(false);
+      setUnlikeResultOpen(true);
+    }
+  };
 
     const fetchUserArticles = async () => {
       const token = localStorage.getItem('accessToken');
@@ -210,44 +250,13 @@ const Profile = () => {
     };
 
     const handleOpenAddTagModal = (articleId: number) => {
-      Swal.fire({
-        title: 'Enter Tag',
-        html: `
-          <input type="text" id="tagName" class="swal2-input" placeholder="Tag Name">
-          <label for="isPublic" class="swal2-checkbox" style="display: flex; align-items: center; margin-top: 20px;">
-            <input type="checkbox" id="isPublic" style="width: 24px; height: 24px; margin-right: 8px;"> Public
-          </label>
-          <div style="display: flex; justify-content: center; margin-top: 20px;">
-            <button type="button" id="swal2-confirm" class="swal2-confirm swal2-styled" style="margin-right: 5px;">OK</button>
-            <button type="button" id="swal2-cancel" class="swal2-cancel swal2-styled">Cancel</button>
-          </div>
-        `,
-        showConfirmButton: false,
-        preConfirm: () => {
-          
-        },
-        didOpen: () => {
-          
-          const confirmButton = Swal.getPopup()?.querySelector('#swal2-confirm') as HTMLElement;
-          confirmButton.onclick = () => {
-            const tagName = (Swal.getPopup()?.querySelector('#tagName') as HTMLInputElement)?.value;
-            const isPublic = (Swal.getPopup()?.querySelector('#isPublic') as HTMLInputElement)?.checked;
-            if (tagName) {
-              handleAddTag(articleId, tagName, isPublic);
-              Swal.close();
-            } else {
-              Swal.showValidationMessage('Tag name is required');
-            }
-          };
-    
-          
-          const cancelButton = Swal.getPopup()?.querySelector('#swal2-cancel') as HTMLElement;
-          cancelButton.onclick = () => {
-            Swal.close();
-          };
-        }
-      });
+      setTagArticleId(articleId);
+      setTagName("");
+      setTagIsPublic(false);
+      setTagError(null);
+      setAddTagDialogOpen(true);
     };
+
 
     const showTags = async (articleId: number) => {
       const token = localStorage.getItem('accessToken');
@@ -272,43 +281,54 @@ const Profile = () => {
       }
     };
 
-    const handleAddTag = async (articleId: number, tagName: string, isPublic: boolean): Promise<void> => {
-      try {
-        const token = localStorage.getItem('accessToken'); 
-        const response = await fetch('http://localhost:8000/api/add-tag/', { 
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            article_id: articleId,
-            tag_name: tagName,
-            is_public: isPublic,
-          }),
-        });
-    
-        if (!response.ok) {
-          throw new Error('Failed to add tag to article');
-        }
-    
-        const data = await response.json();
-        console.log(data.message);
+    const handleConfirmAddTag = async (): Promise<void> => {
+      if (!tagArticleId) return;
 
-        Swal.fire(
-          'Tag Added!',
-          'The tag has been successfully added.',
-          'success'
-        );
-      } catch (error) {
-        console.error('Error:', error);
-        Swal.fire(
-          'Error!',
-          'Failed to add tag to the article.',
-          'error'
-        )
+      if (!tagName.trim()) {
+        setTagError("Tag name is required.");
+        return;
       }
-    };
+
+    try {
+      setTagSubmitting(true);
+      setTagError(null);
+
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://localhost:8000/api/add-tag/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          article_id: tagArticleId,
+          tag_name: tagName.trim(),
+          is_public: tagIsPublic,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add tag to article");
+      }
+
+      const data = await response.json();
+      console.log(data.message);
+
+      // zavrieme input dialog a ukážeme result dialog
+      setAddTagDialogOpen(false);
+      setTagResultStatus("success");
+      setTagResultMessage("The tag has been successfully added.");
+      setTagResultOpen(true);
+    } catch (error) {
+      console.error("Error:", error);
+      setTagResultStatus("error");
+      setTagResultMessage("Failed to add tag to the article. Please try again.");
+      setTagResultOpen(true);
+    } finally {
+      setTagSubmitting(false);
+    }
+  };
+
 
     const handleEditClick = (article: Article) => {
       setCurrentArticleToEdit(article.id);
@@ -316,6 +336,14 @@ const Profile = () => {
     };
 
   
+if (loading) {
+  return (
+    <div className="flex flex-col items-center justify-center mt-20">
+        {/* prázdna stránka / loader */}
+    </div>
+  );
+}
+
 return (
   <>
     {!isLoggedIn || !user ? (
@@ -346,17 +374,138 @@ return (
         </Card>
       </div>
     ) : (
-      <div className="max-w-5xl mx-auto mt-24 px-4 pb-16">
+      <div className="max-w-5xl mx-auto mt-12 px-4 pb-16">
 
         {/* PROFILE CARD */}
-        <Card className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-md rounded-2xl mb-10">
-          <CardHeader>
-            <CardTitle className="text-2xl font-semibold text-[hsl(var(--foreground))]">
-              {user.first_name} {user.last_name}
-            </CardTitle>
-            <p className="text-[hsl(var(--muted-foreground))] text-sm">{user.email}</p>
+        <Card
+          className="
+            relative mb-10 overflow-hidden rounded-3xl
+            border border-[hsl(var(--border))]
+            bg-gradient-to-br from-[hsl(var(--card))] to-[hsl(var(--muted))]
+            shadow-lg
+          "
+        >
+          <CardHeader className="flex flex-row items-center gap-6 p-6">
+            {/* Avatar / initials */}
+            <div className="relative">
+              {/* glow / ring */}
+              <div
+                className="
+                  absolute inset-0
+                  rounded-2xl
+                  bg-[hsl(var(--primary))/0.35]
+                  blur-sm
+                  opacity-80
+                "
+                aria-hidden="true"
+              />
+
+              {/* actual avatar */}
+              <div
+                className="
+                  relative flex h-14 w-14 items-center justify-center
+                  rounded-2xl
+                  border border-[hsl(var(--primary))/0.5]
+                  bg-[hsl(var(--background))]
+                  text-xl font-semibold tracking-tight
+                  text-[hsl(var(--primary))]
+                  shadow-md
+                "
+              >
+                {user.first_name?.[0]}
+                {user.last_name?.[0]}
+              </div>
+            </div>
+
+
+            {/* Name + email */}
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-2xl font-semibold tracking-tight text-[hsl(var(--foreground))]">
+                {user.first_name} {user.last_name}
+              </CardTitle>
+
+              <p className="mt-1 truncate text-sm text-[hsl(var(--muted-foreground))]">
+                {user.email}
+              </p>
+
+            </div>
+
+            {/* Quick stats */}
+            <div className="hidden sm:flex flex-col items-end gap-3">
+              {/* My articles */}
+              <div className="relative">
+                {/* glow / ring */}
+                <div
+                  className="
+                    absolute inset-0
+                    rounded-2xl
+                    bg-[hsl(var(--primary))/0.25]
+                    blur-sm
+                    opacity-80
+                  "
+                  aria-hidden="true"
+                />
+
+                {/* card */}
+                <div
+                  className="
+                    relative
+                    rounded-2xl
+                    border border-[hsl(var(--primary))/0.5]
+                    bg-[hsl(var(--background))]
+                    px-4 py-2.5
+                    text-right
+                    shadow-md
+                  "
+                >
+                  <p className="text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                    My articles
+                  </p>
+                  <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                    {userArticles.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Favourites */}
+              <div className="relative">
+                {/* glow / ring */}
+                <div
+                  className="
+                    absolute inset-0
+                    rounded-2xl
+                    bg-[hsl(var(--primary))/0.25]
+                    blur-sm
+                    opacity-80
+                  "
+                  aria-hidden="true"
+                />
+
+                {/* card */}
+                <div
+                  className="
+                    relative
+                    rounded-2xl
+                    border border-[hsl(var(--primary))/0.5]
+                    bg-[hsl(var(--background))]
+                    px-4 py-2.5
+                    text-right
+                    shadow-md
+                  "
+                >
+                  <p className="text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                    Favourites
+                  </p>
+                  <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                    {likedArticles.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+
           </CardHeader>
         </Card>
+
 
         {/* MAIN TABS */}
         <Tabs defaultValue="myarticles" className="w-full">
@@ -477,49 +626,54 @@ return (
 
                       <div className="flex flex-col gap-2">
 
-                        <Button
-                          onClick={() => showTags(article.id)}
-                          size="sm"
-                          className="
-                            rounded-xl
-                            bg-[hsl(var(--accent))]
-                            border border-[hsl(var(--border))]
-                            text-[hsl(var(--foreground))]
-                            hover:bg-[hsl(var(--muted))]
-                            transition
-                          "
-                        >
-                          Show Tags
-                        </Button>
+                    <Button
+                      onClick={() => showTags(article.id)}
+                      size="sm"
+                      variant="outline"
+                      className="
+                        rounded-xl px-3 py-1.5 text-xs font-medium
+                        border border-[hsl(var(--primary))/60]    
+                        bg-[hsl(var(--accent))]
+                        text-[hsl(var(--primary))]                
+                        hover:bg-[hsl(var(--primary))/10]         
+                        shadow-sm
+                        transition-colors
+                      "
+                    >
+                      Show tags
+                    </Button>
 
-                        <Button
-                          onClick={() => handleOpenAddTagModal(article.id)}
-                          size="sm"
-                          className="
-                            rounded-xl
-                            bg-[hsl(var(--primary))]
-                            text-[hsl(var(--primary-foreground))]
-                            hover:scale-[1.03]
-                            transition
-                          "
-                        >
-                          Add Tag
-                        </Button>
+                    <Button
+                      onClick={() => handleOpenAddTagModal(article.id)}
+                      size="sm"
+                      className="
+                        rounded-xl px-3 py-1.5 text-xs font-medium
+                        bg-[hsl(var(--primary))]
+                        text-[hsl(var(--primary-foreground))]
+                        hover:brightness-110
+                        shadow-sm
+                        transition-colors
+                      "
+                    >
+                      Add tag
+                    </Button>
 
-                        <Button
-                          onClick={() => unlikeArticle(article.id)}
-                          variant="secondary"
-                          size="sm"
-                          className="
-                            rounded-xl
-                            bg-[hsl(var(--secondary))]
-                            text-[hsl(var(--foreground))]
-                            hover:bg-[hsl(var(--muted))]
-                            transition
-                          "
-                        >
-                          Unlike
-                        </Button>
+                    <Button
+                      onClick={() => openUnlikeConfirm(article.id)}
+                      size="sm"
+                      variant="outline"
+                      className="
+                        rounded-xl px-3 py-1.5 text-xs font-medium
+                        border-[hsl(var(--destructive))]/70
+                        bg-[hsl(var(--destructive))]/10
+                        text-[hsl(var(--destructive))]
+                        hover:bg-[hsl(var(--destructive))]/20
+                        transition-colors
+                      "
+                    >
+                      Unlike
+                    </Button>
+
                       </div>
                     </div>
                   </Card>
@@ -653,6 +807,175 @@ return (
                 "
               >
                 Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ADD TAG DIALOG */}
+        <Dialog open={addTagDialogOpen} onOpenChange={setAddTagDialogOpen}>
+          <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+                Add tag
+              </DialogTitle>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Enter a tag for this article and choose whether it should be public.
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+                  Tag name
+                </label>
+                <Input
+                  value={tagName}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTagName(e.target.value)}
+                  placeholder="e.g. optimization, transformers…"
+                  className="
+                    h-10 rounded-xl
+                    border border-[hsl(var(--border))]
+                    bg-[hsl(var(--accent))]
+                    text-sm
+                    shadow-sm
+                    focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))] focus-visible:ring-offset-0
+                  "
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="tag-is-public"
+                  type="checkbox"
+                  checked={tagIsPublic}
+                  onChange={(e) => setTagIsPublic(e.target.checked)}
+                  className="h-4 w-4 rounded border-[hsl(var(--border))]"
+                />
+                <label
+                  htmlFor="tag-is-public"
+                  className="text-sm text-[hsl(var(--foreground))]"
+                >
+                  Public tag
+                </label>
+              </div>
+
+              {tagError && (
+                <p className="text-sm text-[hsl(var(--destructive))]">
+                  {tagError}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter className="mt-4 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setAddTagDialogOpen(false)}
+                className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                onClick={handleConfirmAddTag}
+                disabled={tagSubmitting}
+                className="
+                  rounded-xl bg-[hsl(var(--primary))]
+                  text-[hsl(var(--primary-foreground))]
+                  hover:brightness-110 px-5
+                  disabled:opacity-60 disabled:cursor-not-allowed
+                "
+              >
+                Add tag
+              </Button>
+
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ADD TAG RESULT DIALOG */}
+        <Dialog open={tagResultOpen} onOpenChange={setTagResultOpen}>
+          <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+                {tagResultStatus === "success" ? "Tag added" : "Tag error"}
+              </DialogTitle>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                {tagResultMessage}
+              </p>
+            </DialogHeader>
+
+            <DialogFooter className="mt-4">
+              <Button
+                onClick={() => setTagResultOpen(false)}
+                className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+              >
+                OK
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* UNLIKE CONFIRM DIALOG */}
+        <Dialog open={unlikeConfirmOpen} onOpenChange={setUnlikeConfirmOpen}>
+          <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+                Remove from favourites?
+              </DialogTitle>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                This article will be removed from your favourite articles list. You can still like it again later.
+              </p>
+            </DialogHeader>
+
+            <DialogFooter className="mt-4 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setUnlikeConfirmOpen(false)}
+                className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                onClick={handleConfirmUnlike}
+                disabled={unlikeSubmitting}
+                className="
+                  rounded-xl px-4 py-2 text-sm font-semibold
+                  border-[hsl(var(--destructive))]/70
+                  bg-[hsl(var(--destructive))]/10
+                  text-[hsl(var(--destructive))]
+                  hover:bg-[hsl(var(--destructive))]/20
+                  disabled:opacity-60 disabled:cursor-not-allowed
+                "
+                variant="outline"
+              >
+                Remove
+              </Button>
+
+
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* UNLIKE RESULT DIALOG */}
+        <Dialog open={unlikeResultOpen} onOpenChange={setUnlikeResultOpen}>
+          <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+                {unlikeResultStatus === "success" ? "Article unliked" : "Action failed"}
+              </DialogTitle>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                {unlikeResultMessage}
+              </p>
+            </DialogHeader>
+
+            <DialogFooter className="mt-4">
+              <Button
+                onClick={() => setUnlikeResultOpen(false)}
+                className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+              >
+                OK
               </Button>
             </DialogFooter>
           </DialogContent>

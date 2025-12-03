@@ -427,64 +427,75 @@ const handleExportBibtex = async () => {
 
 
 return (
-  <Card
-    className="
-      bg-card/70 
-      backdrop-blur-xl 
-      border 
-      rounded-2xl 
-      shadow-xl 
-      p-6 
-      space-y-8
-    "
-  >
+  <Card className="relative bg-card/70 backdrop-blur-xl border border-border/60 rounded-3xl shadow-xl p-6 sm:p-8 space-y-8">
     {/* ---------- HEADER ---------- */}
-    <CardHeader className="pb-4">
-      <CardTitle className="text-3xl font-semibold text-primary tracking-tight">
-        {group?.name}
-      </CardTitle>
+    <CardHeader className="p-0">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/30 shadow-inner">
+            <Users className="w-6 h-6" />
+          </div>
 
-      <p className="text-muted-foreground mt-1">
-        Admin:{" "}
-        <span className="font-medium">
-          {group?.admin.first_name} {group?.admin.last_name}
-        </span>
-      </p>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Group detail
+            </p>
+
+            <CardTitle className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
+              {group?.name ?? "Loading group..."}
+            </CardTitle>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Admin:{" "}
+              <span className="font-medium">
+                {group?.admin.first_name} {group?.admin.last_name}
+              </span>
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <Badge
+                variant="outline"
+                className="flex items-center gap-1 rounded-full px-3 py-1"
+              >
+                <Users className="w-3 h-3" />
+                <span>{group?.members.length ?? 0} members</span>
+              </Badge>
+              {isAdmin && (
+                <Badge className="rounded-full px-3 py-1">
+                  You are admin
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </CardHeader>
 
     <Separator />
 
-
     {/* ---------- GROUP MEMBERS ---------- */}
-    <Card className="border rounded-xl shadow-sm bg-card/60">
-      <CardHeader className="flex flex-row items-center gap-2">
-        <Users className="w-5 h-5 text-primary" />
-        <CardTitle className="text-xl">Members</CardTitle>
+    <Card className="border border-border/60 rounded-2xl bg-card/60 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-primary" />
+          <CardTitle className="text-lg sm:text-xl">Members</CardTitle>
+        </div>
       </CardHeader>
 
-      <CardContent>
-        <ScrollArea className="max-h-60 pr-3">
-          {group?.members.length ? (
+      <CardContent className="pt-0">
+        <ScrollArea className="h-72 w-full pr-3 -mr-3">
+          {group?.members?.length ? (
             <ul className="space-y-3">
               {group.members.sort(sortByName).map((m) => (
                 <li
                   key={m.id}
-                  className="
-                    flex 
-                    justify-between 
-                    items-center 
-                    bg-accent 
-                    p-3 
-                    rounded-lg 
-                    border 
-                    border-border
-                  "
+                  className="flex justify-between items-center bg-accent/60 px-3 py-2.5 rounded-xl border border-border text-sm hover:bg-accent transition-colors"
                 >
                   <div>
                     <p className="font-medium">
                       {m.first_name} {m.last_name}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       @{m.username}
                     </p>
                   </div>
@@ -492,7 +503,8 @@ return (
                   {isAdmin && currentUser !== m.id && (
                     <Button
                       variant="destructive"
-                      className="rounded-lg"
+                      size="sm"
+                      className="rounded-full text-xs"
                       onClick={() => handleKickMember(m.id)}
                     >
                       Remove
@@ -507,7 +519,7 @@ return (
         </ScrollArea>
 
         {!isAdmin && (
-          <p className="text-muted-foreground text-xs mt-2">
+          <p className="mt-2 text-[11px] text-muted-foreground">
             Only group admin can remove members.
           </p>
         )}
@@ -517,60 +529,62 @@ return (
 
     <Separator />
 
-
     {/* ---------- FAVOURITE ARTICLES ---------- */}
-    <Card className="border rounded-xl shadow-sm bg-card/60">
-      <CardHeader className="flex flex-row items-center gap-2 mb-2">
-        <Bookmark className="w-5 h-5 text-primary" />
-        <CardTitle className="text-xl">Favourite Articles</CardTitle>
+    <Card className="border border-border/60 rounded-2xl bg-card/60 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <div className="flex items-center gap-2">
+          <Bookmark className="w-5 h-5 text-primary" />
+          <CardTitle className="text-lg sm:text-xl">
+            Favourite Articles
+          </CardTitle>
+        </div>
+        <Badge variant="outline" className="rounded-full text-xs">
+          {articles.length} saved articles
+        </Badge>
       </CardHeader>
 
-      <CardContent>
-        <ScrollArea className="max-h-72 pr-3">
+      <CardContent className="pt-0">
+        <ScrollArea className="h-72 w-full pr-3 -mr-3">
           {articles.length > 0 ? (
             <ul className="space-y-4">
               {articles.map((article) => (
                 <li
                   key={article.id}
-                  className="
-                    bg-accent 
-                    p-4 
-                    rounded-lg 
-                    border 
-                    border-border 
-                    shadow-sm
-                  "
+                  className="bg-accent/60 p-4 rounded-xl border border-border shadow-sm hover:bg-accent transition-colors"
                 >
-                  <p className="font-medium mb-3">
-                    {article.title.length > 80
-                      ? article.title.slice(0, 80) + "..."
+                  <p className="font-medium mb-3 text-sm leading-snug">
+                    {article.title.length > 110
+                      ? article.title.slice(0, 110) + "..."
                       : article.title}
                   </p>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
-                      className="rounded-lg"
+                      className="rounded-full text-xs"
                       onClick={() => handleShowTags(article.id)}
                     >
-                      Show Tags
+                      <Tag className="w-3 h-3 mr-1" />
+                      Show tags
                     </Button>
 
                     <Button
                       size="sm"
-                      className="rounded-lg"
+                      className="rounded-full text-xs"
                       onClick={() => handleOpenAddTagModal(article.id)}
                     >
-                      Add Tag
+                      Add tag
                     </Button>
 
                     {isAdmin && (
                       <Button
                         variant="destructive"
                         size="sm"
-                        className="rounded-lg"
-                        onClick={() => handleUnlikeArticleAsGroup(article.id)}
+                        className="rounded-full text-xs"
+                        onClick={() =>
+                          handleUnlikeArticleAsGroup(article.id)
+                        }
                       >
                         Unlike
                       </Button>
@@ -586,28 +600,17 @@ return (
       </CardContent>
     </Card>
 
-
     <Separator />
 
-
     {/* ---------- ACTIONS ---------- */}
-    <div className="flex justify-between items-center pt-4">
-
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
       {/* LEFT SIDE ACTIONS */}
-      <div className="flex items-center gap-3">
-        {isAdmin && (
-          <Button
-            onClick={() => {}}
-            className="rounded-lg flex items-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            <InviteButton groupId={groupId} />
-          </Button>
-        )}
+      <div className="flex flex-wrap items-center gap-3">
+        {isAdmin && <InviteButton groupId={groupId} />}
 
         <Button
           variant="secondary"
-          className="rounded-lg"
+          className="rounded-full"
           onClick={handleExportBibtex}
         >
           Export BibTeX
@@ -615,11 +618,11 @@ return (
       </div>
 
       {/* RIGHT SIDE ACTIONS */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         {isAdmin ? (
           <Button
             variant="destructive"
-            className="rounded-lg flex items-center gap-2"
+            className="rounded-full flex items-center gap-2"
             onClick={handleDeleteGroup}
           >
             <Trash2 className="w-4 h-4" />
@@ -628,7 +631,7 @@ return (
         ) : (
           <Button
             variant="destructive"
-            className="rounded-lg flex items-center gap-2"
+            className="rounded-full flex items-center gap-2"
             onClick={handleLeaveGroup}
           >
             <LogOut className="w-4 h-4" />
@@ -639,6 +642,9 @@ return (
     </div>
   </Card>
 );
+
+
+
 
 };
 

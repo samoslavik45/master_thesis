@@ -587,16 +587,42 @@ def list_groups(request):
     serializer = GroupSerializer(groups, many=True)
     return Response(serializer.data)
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from rest_framework.response import Response
+
+from .models import Group  # alebo ako sa ti volá model
+from .serializers import GroupSerializer
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_group(request):
-    serializer = GroupSerializer(data=request.data)
+    name = request.data.get("name", "").strip()
+
+    # 1) kontrola duplicitného názvu (case-insensitive)
+    if not name:
+        return Response(
+            {"name": ["Group name is required."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if Group.objects.filter(name__iexact=name).exists():
+        return Response(
+            {"name": ["Group with this name already exists."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 2) pokračuj štandardne
+    serializer = GroupSerializer(data={**request.data, "name": name})
     if serializer.is_valid():
-        group = serializer.save(admin=request.user)  
-        group.members.add(request.user) 
+        group = serializer.save(admin=request.user)
+        group.members.add(request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
