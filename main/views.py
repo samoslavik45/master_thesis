@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
-from .models import CustomUser, Article, ArticleLike, Group, Author
+from .models import CustomUser, Article, ArticleLike, Group, Author, UserInteraction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -34,7 +34,9 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db import IntegrityError
 from main.recommender.similarity import cosine_similarity
-
+from .models import RecommendationCache
+from main.recommender.personalize import refresh_user_recommendations
+from main.recommender.personalize import build_user_profile_debug
 
 
 User = get_user_model()
@@ -498,10 +500,12 @@ def like_article(request, article_id):
     article = get_object_or_404(Article, id=article_id)
 
     if ArticleLike.objects.filter(user=user, article=article).exists():
-        print("Užívateľ už tento článok likol")
         return Response({'detail': 'Užívateľ už tento článok likol.'}, status=status.HTTP_409_CONFLICT)
 
     ArticleLike.objects.create(user=user, article=article)
+
+    refresh_user_recommendations(user, model_name='tfidf-v1', limit=8)
+
     return Response({'detail': 'Článok bol úspešne liknutý.'}, status=status.HTTP_201_CREATED)
 
 @api_view(['GET'])
@@ -574,6 +578,9 @@ def unlike_article(request, article_id):
     try:
         like = ArticleLike.objects.get(article_id=article_id, user=user)
         like.delete()
+
+        refresh_user_recommendations(user, model_name='tfidf-v1', limit=8)
+
         return Response({'message': 'Článek byl odstraněn z oblíbených.'}, status=status.HTTP_204_NO_CONTENT)
     except ArticleLike.DoesNotExist:
         return Response({'error': 'Článek nebyl nalezen v oblíbených.'}, status=status.HTTP_404_NOT_FOUND)
@@ -653,13 +660,16 @@ def like_article_as_group(request, group_id):
         group = get_object_or_404(Group, pk=group_id, members=request.user)
         article_id = request.data.get('article_id')
         article = get_object_or_404(Article, pk=article_id)
-                
+
         if GroupArticleLike.objects.filter(group=group, article=article).exists():
             return Response({'message': 'Skupina už tento článok likovala.'}, status=status.HTTP_409_CONFLICT)
-        
+
         GroupArticleLike.objects.create(group=group, article=article)
+
+        refresh_user_recommendations(request.user, model_name='tfidf-v1', limit=8)
+
         return Response({'message': 'Článok bol úspešne liknutý skupinou.'}, status=status.HTTP_201_CREATED)
-    
+
     except Group.DoesNotExist:
         return Response({'message': 'Skupina nenájdená alebo nemáte oprávnenie.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -778,21 +788,21 @@ def get_publictags(request, article_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def unlike_article_as_group(request, group_id, article_id):
-
     try:
         group = Group.objects.get(pk=group_id, admin=request.user)
         article = Article.objects.get(pk=article_id)
     except (Group.DoesNotExist, Article.DoesNotExist) as e:
         return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-
     try:
         group_article_like = GroupArticleLike.objects.get(group=group, article=article)
     except GroupArticleLike.DoesNotExist:
         return Response({'detail': 'Article not liked by group.'}, status=status.HTTP_404_NOT_FOUND)
 
-
     group_article_like.delete()
+
+    refresh_user_recommendations(request.user, model_name='tfidf-v1', limit=8)
+
     return Response({'detail': 'Article has been unliked by the group.'}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['DELETE'])
@@ -1098,3 +1108,103 @@ def similar_to_article(request, article_id):
     ordered = [id_to_data[i] for i in top_ids if i in id_to_data]
 
     return Response(ordered)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recommendations(request):
+    user = request.user
+    algo = request.query_params.get('algo', 'tfidf-v1')
+    limit = int(request.query_params.get('limit', 8))
+
+    cache = (
+        RecommendationCache.objects
+        .filter(user=user, algo=algo)
+        .order_by('-created_at')
+        .first()
+    )
+
+    if not cache:
+        payload = refresh_user_recommendations(user, model_name=algo, limit=limit)
+    else:
+        payload = cache.payload[:limit]
+
+    article_ids = [item['id'] for item in payload]
+    if not article_ids:
+        return Response([])
+
+    articles = Article.objects.filter(id__in=article_ids)
+    serialized = ArticleSerializer(
+        articles,
+        many=True,
+        context={'request': request}
+    ).data
+
+    id_to_data = {article['id']: article for article in serialized}
+
+    ordered = []
+    for item in payload:
+        article_data = id_to_data.get(item['id'])
+        if article_data:
+            article_data['score'] = item.get('score')
+            ordered.append(article_data)
+
+    return Response(ordered, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def recommendation_feedback(request, article_id):
+    user = request.user
+    action = request.data.get('action')
+
+    if action not in ['like', 'dismiss']:
+        return Response(
+            {'detail': 'Invalid action. Use "like" or "dismiss".'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    article = get_object_or_404(Article, id=article_id)
+
+    if action == 'like':
+        UserInteraction.objects.create(
+            
+            user=user,
+            article=article,
+            kind=2  # positive feedback on recommendation
+        )
+
+        ArticleLike.objects.get_or_create(
+            user=user,
+            article=article
+        )
+
+    elif action == 'dismiss':
+        UserInteraction.objects.create(
+            user=user,
+            article=article,
+            kind=3  # dismiss recommendation
+        )
+
+    payload = refresh_user_recommendations(user, model_name='tfidf-v1', limit=8)
+
+    return Response(
+        {
+            'detail': 'Feedback saved successfully.',
+            'recommendations': payload
+        },
+        status=status.HTTP_200_OK
+    )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recommendations_debug(request):
+    user = request.user
+    algo = request.query_params.get('algo', 'tfidf-v1')
+    limit = int(request.query_params.get('limit', 8))
+
+    debug_data = build_user_profile_debug(
+        user=user,
+        model_name=algo,
+        limit=limit,
+    )
+
+    return Response(debug_data, status=status.HTTP_200_OK)

@@ -104,7 +104,7 @@ const MainContent: React.FC = () => {
       console.error(err);
     }
   };
-
+  
   return (
     <div className="w-full flex flex-col items-center pt-10 pb-10 text-[hsl(var(--foreground))]">
       {/* TITLE */}
@@ -135,6 +135,7 @@ const MainContent: React.FC = () => {
           categories={categories}
         />
       </div>
+      
     </div>
   );
 };

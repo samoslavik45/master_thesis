@@ -61,6 +61,8 @@ urlpatterns = [
     path('api/groups/<int:group_id>/export_bibtex/', views.export_bibtex, name='export_bibtex'),
     path('api/articles/by_category/<int:category_id>/', views.ArticlesByCategory.as_view(), name='articles-by-category'),
     path("api/articles/<int:article_id>/similar/", views.similar_to_article),
-
-
+    path('api/recommendations/', views.get_recommendations, name='get_recommendations'),
+    path('api/recommendations/<int:article_id>/feedback/', views.recommendation_feedback, name='recommendation_feedback'),
+    path('api/recommendations/debug/', views.get_recommendations_debug, name='get_recommendations_debug'),
+    
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -113,10 +113,22 @@ class Author(models.Model):
         return self.name
 
 class ArticleEmbedding(models.Model):
-    article = models.OneToOneField(Article, on_delete=models.CASCADE, related_name='embedding')
+    article = models.ForeignKey(
+        Article,
+        on_delete=models.CASCADE,
+        related_name='embeddings'
+    )
     vector = models.JSONField()  # list of floats
     model_name = models.CharField(max_length=100)  # e.g. 'tfidf-v1' or 'sbert-v1'
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['article', 'model_name'],
+                name='unique_article_model_embedding'
+            )
+        ]
 
 class UserInteraction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

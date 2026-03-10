@@ -36,4 +36,8 @@ export interface Article {
     id: number;
     name: string;
 }
+
+export interface RecommendedArticle extends Article {
+  score?: number;
+}
   

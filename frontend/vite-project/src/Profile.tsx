@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Article, Category } from "./types";
+import { Article, Category, RecommendedArticle} from "./types";
 import AddArticleModal from "./AddArticleModal";
 import EditArticleModal from "./EditArticleModal";
 import { LoginContext } from "./App";
 import { useContext } from "react";
+import RecommendedList from "./RecommendedList";
 
 import {
   Card,
@@ -35,6 +36,10 @@ interface Profile {
     
 }
 
+interface Keyword {
+  id: number;
+  keyword: string;
+}
 
 const Profile = () => {
     const [user, setUser] = useState<Profile | null>(null); 
@@ -69,41 +74,94 @@ const Profile = () => {
     const [unlikeResultStatus, setUnlikeResultStatus] = useState<"success" | "error">("success");
     const [unlikeResultMessage, setUnlikeResultMessage] = useState("");
 
+    const [recommendedArticles, setRecommendedArticles] = useState<RecommendedArticle[]>([]);
+    const [recoLoading, setRecoLoading] = useState(false);
 
+    const [keywords, setKeywords] = useState<Keyword[]>([]);
+
+    //testovací debug
+    const [debugOpen, setDebugOpen] = useState(false);
+    const [debugLoading, setDebugLoading] = useState(false);
+    const [debugData, setDebugData] = useState<any | null>(null);
+
+    // debug funkcia
+    const fetchRecommendationDebug = async () => {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        setDebugData(null);
+        return;
+      }
+
+      try {
+        setDebugLoading(true);
+
+        const res = await fetch(
+          "http://localhost:8000/api/recommendations/debug/?algo=tfidf-v1&limit=5",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          console.error("Failed to fetch recommendation debug:", res.status);
+          setDebugData(null);
+          return;
+        }
+
+        const data = await res.json();
+        setDebugData(data);
+      } catch (err) {
+        console.error("Error loading recommendation debug:", err);
+        setDebugData(null);
+      } finally {
+        setDebugLoading(false);
+      }
+    };
     const loadAll = async () => {
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
+      const token = localStorage.getItem("accessToken");
+      if (!token) return;
 
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        };
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
 
-        try {
-          const [userRes, articlesRes, likedRes, catRes] = await Promise.all([
+      try {
+        const [userRes, articlesRes, likedRes, catRes, keywordRes] =
+          await Promise.all([
             fetch("http://localhost:8000/main/current_user/", { headers }),
             fetch("http://localhost:8000/api/user-articles/", { headers }),
             fetch("http://localhost:8000/api/liked-articles/", { headers }),
             fetch("http://localhost:8000/api/categories/", { headers }),
+            fetch("http://localhost:8000/api/keywords/", { headers }),
           ]);
 
-          const [userData, articlesData, likedData, categoriesData] =
-            await Promise.all([
-              userRes.json(),
-              articlesRes.json(),
-              likedRes.json(),
-              catRes.json(),
-            ]);
+        const [
+          userData,
+          articlesData,
+          likedData,
+          categoriesData,
+          keywordsData,
+        ] = await Promise.all([
+          userRes.json(),
+          articlesRes.json(),
+          likedRes.json(),
+          catRes.json(),
+          keywordRes.json(),
+        ]);
 
-          setUser(userData);
-          setUserArticles(articlesData);
-          setLikedArticles(likedData);
-          setCategories(categoriesData);
-        } catch (err) {
-          console.error("Error while loading profile:", err);
-          setIsLoggedIn(false);
-        }
-      };
+        setUser(userData);
+        setUserArticles(articlesData);
+        setLikedArticles(likedData);
+        setCategories(categoriesData);
+        setKeywords(keywordsData);
+      } catch (err) {
+        console.error("Error while loading profile:", err);
+        setIsLoggedIn(false);
+      }
+    };
 
 
     useEffect(() => {
@@ -130,13 +188,12 @@ const Profile = () => {
       setIsLoggedIn(true);
 
       // načítaj všetko a až potom vypni loading
-      loadAll()
-        .catch((err) => {
+      Promise.all([loadAll(), fetchRecommendations(), fetchRecommendationDebug()])        .catch((err) => {
           console.error("Error while loading profile:", err);
           setIsLoggedIn(false);
         })
         .finally(() => {
-          setLoading(false);  // ✅ profil ready (alebo fail, ale už vieme stav)
+          setLoading(false);
         });
     }, [setIsLoggedIn]);
 
@@ -330,10 +387,105 @@ const Profile = () => {
   };
 
 
-    const handleEditClick = (article: Article) => {
-      setCurrentArticleToEdit(article.id);
-      setShowEditModal(true);
-    };
+  const handleEditClick = (article: Article) => {
+    setCurrentArticleToEdit(article.id);
+    setShowEditModal(true);
+  };
+
+  const fetchRecommendations = async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      setRecommendedArticles([]);
+      return;
+    }
+
+    try {
+      setRecoLoading(true);
+
+      const res = await fetch("http://localhost:8000/api/recommendations/?limit=5", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error("Failed to fetch recommendations:", res.status);
+        setRecommendedArticles([]);
+        return;
+      }
+
+      const data = await res.json();
+      setRecommendedArticles(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error loading recommendations:", err);
+      setRecommendedArticles([]);
+    } finally {
+      setRecoLoading(false);
+    }
+  };
+
+  const handleOpenRecommendation = (article: RecommendedArticle) => {
+    window.open(`${article.pdf_file}`, "_blank");
+  };
+
+  const handleRecommendationLike = async (articleId: number) => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/recommendations/${articleId}/feedback/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ action: "like" }),
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Failed to like recommendation:", res.status);
+        return;
+      }
+
+      await fetchRecommendations();
+      await fetchRecommendationDebug(); // debug
+      await loadAll(); // refresh favourites count + liked list
+    } catch (err) {
+      console.error("Error liking recommendation:", err);
+    }
+  };
+
+  const handleRecommendationDismiss = async (articleId: number) => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/recommendations/${articleId}/feedback/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ action: "dismiss" }),
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Failed to dismiss recommendation:", res.status);
+        return;
+      }
+
+      await fetchRecommendations();
+      await fetchRecommendationDebug(); // debug
+    } catch (err) {
+      console.error("Error dismissing recommendation:", err);
+    }
+  };
 
   
 if (loading) {
@@ -375,7 +527,6 @@ return (
       </div>
     ) : (
       <div className="max-w-5xl mx-auto mt-12 px-4 pb-16">
-
         {/* PROFILE CARD */}
         <Card
           className="
@@ -386,9 +537,7 @@ return (
           "
         >
           <CardHeader className="flex flex-row items-center gap-6 p-6">
-            {/* Avatar / initials */}
             <div className="relative">
-              {/* glow / ring */}
               <div
                 className="
                   absolute inset-0
@@ -399,8 +548,6 @@ return (
                 "
                 aria-hidden="true"
               />
-
-              {/* actual avatar */}
               <div
                 className="
                   relative flex h-14 w-14 items-center justify-center
@@ -417,8 +564,6 @@ return (
               </div>
             </div>
 
-
-            {/* Name + email */}
             <div className="flex-1 min-w-0">
               <CardTitle className="text-2xl font-semibold tracking-tight text-[hsl(var(--foreground))]">
                 {user.first_name} {user.last_name}
@@ -427,14 +572,10 @@ return (
               <p className="mt-1 truncate text-sm text-[hsl(var(--muted-foreground))]">
                 {user.email}
               </p>
-
             </div>
 
-            {/* Quick stats */}
             <div className="hidden sm:flex flex-col items-end gap-3">
-              {/* My articles */}
               <div className="relative">
-                {/* glow / ring */}
                 <div
                   className="
                     absolute inset-0
@@ -445,8 +586,6 @@ return (
                   "
                   aria-hidden="true"
                 />
-
-                {/* card */}
                 <div
                   className="
                     relative
@@ -467,9 +606,7 @@ return (
                 </div>
               </div>
 
-              {/* Favourites */}
               <div className="relative">
-                {/* glow / ring */}
                 <div
                   className="
                     absolute inset-0
@@ -480,8 +617,6 @@ return (
                   "
                   aria-hidden="true"
                 />
-
-                {/* card */}
                 <div
                   className="
                     relative
@@ -502,17 +637,15 @@ return (
                 </div>
               </div>
             </div>
-
           </CardHeader>
         </Card>
-
 
         {/* MAIN TABS */}
         <Tabs defaultValue="myarticles" className="w-full">
           <TabsList
             className="
-              grid grid-cols-2 w-full 
-              bg-[hsl(var(--muted))] 
+              grid grid-cols-3 w-full
+              bg-[hsl(var(--muted))]
               border border-[hsl(var(--border))]
               rounded-xl mb-6
             "
@@ -523,6 +656,10 @@ return (
 
             <TabsTrigger value="liked" className="rounded-xl">
               Favourite Articles
+            </TabsTrigger>
+
+            <TabsTrigger value="recommended" className="rounded-xl">
+              Recommended For You
             </TabsTrigger>
           </TabsList>
 
@@ -548,7 +685,7 @@ return (
                   <Card
                     key={article.id}
                     className="
-                      bg-[hsl(var(--muted))] 
+                      bg-[hsl(var(--muted))]
                       border border-[hsl(var(--border))]
                       shadow-sm rounded-xl p-4
                       hover:bg-[hsl(var(--card))]
@@ -577,7 +714,7 @@ return (
                           setShowEditModal(true);
                         }}
                         className="
-                          rounded-xl px-4 
+                          rounded-xl px-4
                           bg-[hsl(var(--accent))]
                           border border-[hsl(var(--border))]
                           text-[hsl(var(--foreground))]
@@ -625,55 +762,53 @@ return (
                       </div>
 
                       <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={() => showTags(article.id)}
+                          size="sm"
+                          variant="outline"
+                          className="
+                            rounded-xl px-3 py-1.5 text-xs font-medium
+                            border border-[hsl(var(--primary))/60]
+                            bg-[hsl(var(--accent))]
+                            text-[hsl(var(--primary))]
+                            hover:bg-[hsl(var(--primary))/10]
+                            shadow-sm
+                            transition-colors
+                          "
+                        >
+                          Show tags
+                        </Button>
 
-                    <Button
-                      onClick={() => showTags(article.id)}
-                      size="sm"
-                      variant="outline"
-                      className="
-                        rounded-xl px-3 py-1.5 text-xs font-medium
-                        border border-[hsl(var(--primary))/60]    
-                        bg-[hsl(var(--accent))]
-                        text-[hsl(var(--primary))]                
-                        hover:bg-[hsl(var(--primary))/10]         
-                        shadow-sm
-                        transition-colors
-                      "
-                    >
-                      Show tags
-                    </Button>
+                        <Button
+                          onClick={() => handleOpenAddTagModal(article.id)}
+                          size="sm"
+                          className="
+                            rounded-xl px-3 py-1.5 text-xs font-medium
+                            bg-[hsl(var(--primary))]
+                            text-[hsl(var(--primary-foreground))]
+                            hover:brightness-110
+                            shadow-sm
+                            transition-colors
+                          "
+                        >
+                          Add tag
+                        </Button>
 
-                    <Button
-                      onClick={() => handleOpenAddTagModal(article.id)}
-                      size="sm"
-                      className="
-                        rounded-xl px-3 py-1.5 text-xs font-medium
-                        bg-[hsl(var(--primary))]
-                        text-[hsl(var(--primary-foreground))]
-                        hover:brightness-110
-                        shadow-sm
-                        transition-colors
-                      "
-                    >
-                      Add tag
-                    </Button>
-
-                    <Button
-                      onClick={() => openUnlikeConfirm(article.id)}
-                      size="sm"
-                      variant="outline"
-                      className="
-                        rounded-xl px-3 py-1.5 text-xs font-medium
-                        border-[hsl(var(--destructive))]/70
-                        bg-[hsl(var(--destructive))]/10
-                        text-[hsl(var(--destructive))]
-                        hover:bg-[hsl(var(--destructive))]/20
-                        transition-colors
-                      "
-                    >
-                      Unlike
-                    </Button>
-
+                        <Button
+                          onClick={() => openUnlikeConfirm(article.id)}
+                          size="sm"
+                          variant="outline"
+                          className="
+                            rounded-xl px-3 py-1.5 text-xs font-medium
+                            border-[hsl(var(--destructive))]/70
+                            bg-[hsl(var(--destructive))]/10
+                            text-[hsl(var(--destructive))]
+                            hover:bg-[hsl(var(--destructive))]/20
+                            transition-colors
+                          "
+                        >
+                          Unlike
+                        </Button>
                       </div>
                     </div>
                   </Card>
@@ -681,7 +816,185 @@ return (
               </div>
             </ScrollArea>
           </TabsContent>
+
+          {/* RECOMMENDED ARTICLES */}
+          <TabsContent value="recommended">
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-4 py-3">
+            <div>
+              <h3 className="text-base font-semibold text-[hsl(var(--foreground))]">
+                Recommended for you
+              </h3>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Personalized suggestions based on your likes, group activity and interactions
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div
+                className="
+                  hidden sm:inline-flex items-center rounded-full
+                  border border-[hsl(var(--primary))/0.25]
+                  bg-[hsl(var(--primary))/0.08]
+                  px-3 py-1 text-xs font-medium
+                  text-[hsl(var(--primary))]
+                  w-fit
+                "
+              >
+                Personalized feed
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDebugOpen((prev) => !prev)}
+                className="rounded-xl"
+              >
+                {debugOpen ? "Hide debug" : "Show debug"}
+              </Button>
+            </div>
+          </div>
+
+            <ScrollArea className="h-[480px] pr-3">
+              {recoLoading ? (
+                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-6 text-sm text-[hsl(var(--muted-foreground))]">
+                  Loading recommendations...
+                </div>
+              ) : recommendedArticles.length > 0 ? (
+                <RecommendedList
+                  articles={recommendedArticles}
+                  categories={categories}
+                  keywords={keywords}
+                  isLoggedIn={isLoggedIn}
+                  onOpen={handleOpenRecommendation}
+                  onLike={handleRecommendationLike}
+                  onDismiss={handleRecommendationDismiss}
+                />
+              ) : (
+                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-6 text-sm text-[hsl(var(--muted-foreground))]">
+                  No recommendations available yet. Try liking more articles to build your profile.
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
         </Tabs>
+        
+
+        {/* testovací debug panel */}
+
+        {debugOpen && (
+          <div className="mb-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                Recommendation debug
+              </h4>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={fetchRecommendationDebug}
+                className="rounded-xl"
+              >
+                Refresh debug
+              </Button>
+            </div>
+
+            {debugLoading ? (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                Loading debug info...
+              </p>
+            ) : debugData ? (
+              <div className="space-y-4 text-sm">
+                <div>
+                  <p className="font-medium text-[hsl(var(--foreground))] mb-1">
+                    Seed articles
+                  </p>
+                  <div className="space-y-1 text-[hsl(var(--muted-foreground))]">
+                    <p>User likes: {debugData.seed?.user_liked_ids?.join(", ") || "none"}</p>
+                    <p>Group likes: {debugData.seed?.group_liked_ids?.join(", ") || "none"}</p>
+                    <p>Positive feedback: {debugData.seed?.positive_feedback_ids?.join(", ") || "none"}</p>
+                    <p>Dismiss feedback: {debugData.seed?.dismiss_feedback_ids?.join(", ") || "none"}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <p className="font-medium text-[hsl(var(--foreground))] mb-1">
+                    Profile summary
+                  </p>
+                  <div className="space-y-1 text-[hsl(var(--muted-foreground))]">
+                    <p>Exists: {String(debugData.profile_summary?.exists)}</p>
+                    <p>Vector length: {debugData.profile_summary?.vector_length ?? "-"}</p>
+                    <p>Nonzero dimensions: {debugData.profile_summary?.nonzero_dimensions ?? "-"}</p>
+                    <p>Norm: {debugData.profile_summary?.norm ?? "-"}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <p className="font-medium text-[hsl(var(--foreground))] mb-2">
+                    Weights used
+                  </p>
+
+                  <div className="max-h-36 overflow-y-auto rounded-xl bg-[hsl(var(--muted))] p-3">
+                    {debugData.weights_used?.length ? (
+                      <div className="space-y-1 text-[hsl(var(--muted-foreground))]">
+                        {debugData.weights_used.map((item: any, index: number) => (
+                          <p key={index}>
+                            article {item.article_id} | source: {item.source} | weight: {item.weight}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[hsl(var(--muted-foreground))]">No weights used.</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <p className="font-medium text-[hsl(var(--foreground))] mb-2">
+                    Top recommendations
+                  </p>
+
+                  <div className="max-h-36 overflow-y-auto rounded-xl bg-[hsl(var(--muted))] p-3">
+                    {debugData.recommendations?.length ? (
+                      <div className="space-y-1 text-[hsl(var(--muted-foreground))]">
+                        {debugData.recommendations.map((item: any, index: number) => (
+                          <p key={index}>
+                            article {item.id} | score: {typeof item.score === "number" ? item.score.toFixed(4) : item.score}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[hsl(var(--muted-foreground))]">No recommendations.</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <p className="font-medium text-[hsl(var(--foreground))] mb-2">
+                    First 20 vector values
+                  </p>
+
+                  <div className="max-h-36 overflow-y-auto rounded-xl bg-[hsl(var(--muted))] p-3 text-[hsl(var(--muted-foreground))] break-all">
+                    {debugData.profile_summary?.first_20_values?.length
+                      ? debugData.profile_summary.first_20_values.join(", ")
+                      : "No vector preview available"}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                No debug data available.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* MODALS */}
         {showEditModal && currentArticleToEdit && (
@@ -707,11 +1020,11 @@ return (
         <Dialog open={tagsModalOpen} onOpenChange={setTagsModalOpen}>
           <DialogContent
             className="
-              max-w-md 
-              rounded-3xl 
-              bg-white/90 
-              backdrop-blur-xl 
-              p-8 
+              max-w-md
+              rounded-3xl
+              bg-white/90
+              backdrop-blur-xl
+              p-8
               shadow-2xl
               border border-[hsl(var(--border))]
             "
@@ -725,7 +1038,6 @@ return (
               </p>
             </DialogHeader>
 
-            {/* PUBLIC TAGS */}
             <div className="mt-8">
               <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] text-center">
                 Public Tags
@@ -738,11 +1050,11 @@ return (
                       <span
                         key={i}
                         className="
-                          px-4 py-1.5 
-                          bg-[hsl(var(--accent))] 
-                          text-[hsl(var(--foreground))] 
-                          rounded-full 
-                          text-sm 
+                          px-4 py-1.5
+                          bg-[hsl(var(--accent))]
+                          text-[hsl(var(--foreground))]
+                          rounded-full
+                          text-sm
                           border border-[hsl(var(--border))]
                           shadow-sm
                         "
@@ -761,7 +1073,6 @@ return (
 
             <Separator className="my-6" />
 
-            {/* USER TAGS */}
             <div>
               <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] text-center">
                 Your Tags
@@ -774,11 +1085,11 @@ return (
                       <span
                         key={i}
                         className="
-                          px-4 py-1.5 
-                          bg-[hsl(var(--primary))/0.15] 
-                          text-[hsl(var(--primary))] 
-                          rounded-full 
-                          text-sm 
+                          px-4 py-1.5
+                          bg-[hsl(var(--primary))/0.15]
+                          text-[hsl(var(--primary))]
+                          rounded-full
+                          text-sm
                           border border-[hsl(var(--primary))/0.4]
                           shadow-sm
                         "
@@ -799,10 +1110,10 @@ return (
               <Button
                 onClick={() => setTagsModalOpen(false)}
                 className="
-                  rounded-lg px-8 py-2 
-                  bg-[hsl(var(--primary))] 
-                  text-[hsl(var(--primary-foreground))] 
-                  hover:brightness-110 
+                  rounded-lg px-8 py-2
+                  bg-[hsl(var(--primary))]
+                  text-[hsl(var(--primary-foreground))]
+                  hover:brightness-110
                   shadow-md
                 "
               >
@@ -888,7 +1199,6 @@ return (
               >
                 Add tag
               </Button>
-
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -952,8 +1262,6 @@ return (
               >
                 Remove
               </Button>
-
-
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -980,7 +1288,6 @@ return (
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </div>
     )}
   </>
