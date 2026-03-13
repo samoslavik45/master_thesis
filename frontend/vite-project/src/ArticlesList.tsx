@@ -1,11 +1,12 @@
 // Modernized ArticlesList with full original functionality preserved
 // Using shadcn/ui components and badges for categories & keywords
 
-import React, { useState } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { Article, Category } from "./types";
 import axios from "axios";
 import fileDownload from "js-file-download";
 import Swal from "sweetalert2";
+import { LoginContext } from "./App";
 
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,8 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   const [likeGroupDialogOpen, setLikeGroupDialogOpen] = useState(false);
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
   const [selectedSimilar, setSelectedSimilar] = useState<any | null>(null);
+  const { selectedRecoModel } = useContext(LoginContext);
+  
 
 
   const toggleAbstract = (id: number) => {
@@ -97,7 +100,7 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
   const fetchSimilar = async (articleId: number) => {
     try {
       const res = await fetch(
-        `http://localhost:8000/api/articles/${articleId}/similar/?k=4`
+        `http://localhost:8000/api/articles/${articleId}/similar/?algo=${selectedRecoModel}&k=4`
       );
       const data = await res.json();
       setSimilar((prev) => ({ ...prev, [articleId]: data }));
@@ -270,7 +273,10 @@ const confirmGroupLike = async (groupId: number) => {
 };
 
 
-
+useEffect(() => {
+  setSimilar({});
+  setSimilarOpen([]);
+}, [selectedRecoModel]);
 
 
 
@@ -833,9 +839,29 @@ return (
                         mt-4
                       "
                     >
-                      <h3 className="font-semibold text-[hsl(var(--foreground))] mb-4 text-lg">
-                        Similar Articles
-                      </h3>
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg">
+                            Similar Articles
+                          </h3>
+                          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                            Current model: {selectedRecoModel === "sbert-v1" ? "SBERT" : "TF-IDF"}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`
+                            inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold
+                            ${
+                              selectedRecoModel === "sbert-v1"
+                                ? "bg-[hsl(var(--primary))/0.14] text-[hsl(var(--primary))] border border-[hsl(var(--primary))/0.25]"
+                                : "bg-[hsl(var(--accent))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))]"
+                            }
+                          `}
+                        >
+                          {selectedRecoModel === "sbert-v1" ? "SBERT active" : "TF-IDF active"}
+                        </span>
+                      </div>
 
                       <ScrollArea className="h-56 pr-2">
                         <div className="space-y-4">

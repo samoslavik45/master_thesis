@@ -1,3 +1,5 @@
+from enum import member
+
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.http import JsonResponse, Http404
@@ -5,6 +7,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
+from urllib3 import request
 from .models import CustomUser, Article, ArticleLike, Group, Author, UserInteraction
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -37,6 +40,7 @@ from main.recommender.similarity import cosine_similarity
 from .models import RecommendationCache
 from main.recommender.personalize import refresh_user_recommendations
 from main.recommender.personalize import build_user_profile_debug
+from main.recommender.index import update_single_article_sbert_embedding
 
 
 User = get_user_model()
@@ -252,6 +256,8 @@ def delete_article(request, article_id):
         for tag in Tag.objects.all():
             if not tag.userarticletag_set.exists():
                 tag.delete()
+        
+        refresh_recommendations_for_all_models(request.user, limit=8)
 
         return JsonResponse({'message': 'Článok a všetky nepoužívané väzby boli úspešne zmazané.'}, status=200)
 
@@ -398,7 +404,10 @@ def create_article(request):
                 keyword_clean = keyword_str.lower().strip()
                 keyword_obj, created = Keyword.objects.get_or_create(keyword=keyword_clean)
                 article.keywords.add(keyword_obj)
-
+            
+            update_single_article_sbert_embedding(article)
+            refresh_recommendations_for_all_models(request.user, limit=8)
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
         print(serializer.errors) 
@@ -504,7 +513,7 @@ def like_article(request, article_id):
 
     ArticleLike.objects.create(user=user, article=article)
 
-    refresh_user_recommendations(user, model_name='tfidf-v1', limit=8)
+    refresh_recommendations_for_all_models(user, limit=8)
 
     return Response({'detail': 'Článok bol úspešne liknutý.'}, status=status.HTTP_201_CREATED)
 
@@ -579,7 +588,7 @@ def unlike_article(request, article_id):
         like = ArticleLike.objects.get(article_id=article_id, user=user)
         like.delete()
 
-        refresh_user_recommendations(user, model_name='tfidf-v1', limit=8)
+        refresh_recommendations_for_all_models(user, limit=8)
 
         return Response({'message': 'Článek byl odstraněn z oblíbených.'}, status=status.HTTP_204_NO_CONTENT)
     except ArticleLike.DoesNotExist:
@@ -666,7 +675,7 @@ def like_article_as_group(request, group_id):
 
         GroupArticleLike.objects.create(group=group, article=article)
 
-        refresh_user_recommendations(request.user, model_name='tfidf-v1', limit=8)
+        refresh_recommendations_for_all_models(user, limit=8)
 
         return Response({'message': 'Článok bol úspešne liknutý skupinou.'}, status=status.HTTP_201_CREATED)
 
@@ -801,7 +810,7 @@ def unlike_article_as_group(request, group_id, article_id):
 
     group_article_like.delete()
 
-    refresh_user_recommendations(request.user, model_name='tfidf-v1', limit=8)
+    refresh_recommendations_for_all_models(user, limit=8)
 
     return Response({'detail': 'Article has been unliked by the group.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -816,7 +825,7 @@ def kick_member(request, group_id, member_id):
         return Response({'detail': 'Member not part of the group.'}, status=status.HTTP_404_NOT_FOUND)
     
     group.members.remove(member)
-
+    refresh_recommendations_for_all_models(member, limit=8)
     GroupInvite.objects.filter(group=group, invited_user=member).delete()
     return Response({'detail': 'Member successfully kicked out of the group.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -830,9 +839,12 @@ def delete_group(request, group_id):
     if group.admin != request.user:
         return Response({'detail': 'Unauthorized. Only group admin can delete the group.'}, status=status.HTTP_403_FORBIDDEN)
 
-
+    members = list(group.members.all())
+    
     group.delete()
-
+    
+    for member in members:
+        refresh_recommendations_for_all_models(member, limit=8)
     return Response({'detail': 'Group successfully deleted.'}, status=status.HTTP_200_OK)
 
 @api_view(['PUT'])
@@ -925,6 +937,9 @@ def update_article(request, article_id):
             setattr(metadata, field, request.data[field])
 
     metadata.save()
+
+    update_single_article_sbert_embedding(updated_article)
+    refresh_recommendations_for_all_models(request.user, limit=8)
 
     return Response(serializer.data)
 
@@ -1032,6 +1047,7 @@ def leave_group(request, group_id):
 
 
         group.members.remove(request.user)
+        refresh_recommendations_for_all_models(request.user, limit=8)
         group.save()
 
         return JsonResponse({'message': 'You have successfully left the group.'}, status=200)
@@ -1072,19 +1088,31 @@ def export_bibtex(request, group_id):
 @api_view(['GET'])
 def similar_to_article(request, article_id):
     """
-    Vráti najpodobnejšie články podľa TF-IDF embeddingov.
+    Vráti najpodobnejšie články podľa zvoleného embedding modelu.
+    Podporované napr.:
+    - tfidf-v1
+    - sbert-v1
     """
-    k = int(request.query_params.get('k', 5))  # default top 5 similar
+    k = int(request.query_params.get('k', 5))
+    algo = request.query_params.get('algo', 'tfidf-v1')
 
-    # 1. Nájdeme embedding aktuálneho článku
-    me = ArticleEmbedding.objects.filter(article_id=article_id).first()
+    # 1. Nájdeme embedding aktuálneho článku pre zvolený model
+    me = ArticleEmbedding.objects.filter(
+        article_id=article_id,
+        model_name=algo
+    ).first()
+
     if not me:
-        return Response([])  # článok ešte nemá embedding → nič nevraciame
+        return Response([])  # článok ešte nemá embedding pre tento model
 
     me_vec = np.array(me.vector, dtype=float)
 
-    # 2. Načítať embeddingy všetkých ostatných článkov
-    candidates = ArticleEmbedding.objects.exclude(article_id=article_id)
+    # 2. Načítať embeddingy všetkých ostatných článkov pre rovnaký model
+    candidates = ArticleEmbedding.objects.filter(
+        model_name=algo
+    ).exclude(
+        article_id=article_id
+    )
 
     scored = []
 
@@ -1101,7 +1129,11 @@ def similar_to_article(request, article_id):
 
     # 5. Načítať články a serializovať
     articles = Article.objects.filter(id__in=top_ids)
-    serialized = ArticleSerializer(articles, many=True, context={'request': request}).data
+    serialized = ArticleSerializer(
+        articles,
+        many=True,
+        context={'request': request}
+    ).data
 
     # zachovať pôvodné poradie
     id_to_data = {a['id']: a for a in serialized}
@@ -1124,7 +1156,7 @@ def get_recommendations(request):
     )
 
     if not cache:
-        payload = refresh_user_recommendations(user, model_name=algo, limit=limit)
+        payload = refresh_recommendations_for_all_models(user, limit=8)
     else:
         payload = cache.payload[:limit]
 
@@ -1184,7 +1216,7 @@ def recommendation_feedback(request, article_id):
             kind=3  # dismiss recommendation
         )
 
-    payload = refresh_user_recommendations(user, model_name='tfidf-v1', limit=8)
+    payload = refresh_recommendations_for_all_models(user, limit=8)
 
     return Response(
         {
@@ -1208,3 +1240,8 @@ def get_recommendations_debug(request):
     )
 
     return Response(debug_data, status=status.HTTP_200_OK)
+
+
+def refresh_recommendations_for_all_models(user, limit=8):
+    refresh_user_recommendations(user, model_name='tfidf-v1', limit=limit)
+    refresh_user_recommendations(user, model_name='sbert-v1', limit=limit)

@@ -49,7 +49,12 @@ const Profile = () => {
     const [showEditModal, setShowEditModal] = useState<boolean>(false);
     const [currentArticleToEdit, setCurrentArticleToEdit] = useState<number | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
-    const { isLoggedIn, setIsLoggedIn, openLogin } = useContext(LoginContext);
+    const {
+      isLoggedIn,
+      setIsLoggedIn,
+      openLogin,
+      selectedRecoModel,
+    } = useContext(LoginContext);
     const [tagsModalOpen, setTagsModalOpen] = useState(false);
     const [publicTags, setPublicTags] = useState<string[]>([]);
     const [userTags, setUserTags] = useState<string[]>([]);
@@ -96,7 +101,7 @@ const Profile = () => {
         setDebugLoading(true);
 
         const res = await fetch(
-          "http://localhost:8000/api/recommendations/debug/?algo=tfidf-v1&limit=5",
+          `http://localhost:8000/api/recommendations/debug/?algo=${selectedRecoModel}&limit=5`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -196,6 +201,13 @@ const Profile = () => {
           setLoading(false);
         });
     }, [setIsLoggedIn]);
+
+    useEffect(() => {
+      if (!isLoggedIn) return;
+
+      fetchRecommendations();
+      fetchRecommendationDebug();
+    }, [selectedRecoModel, isLoggedIn]);
 
     
     const handleDeleteArticle = async (articleId: number) => {
@@ -402,7 +414,8 @@ const Profile = () => {
     try {
       setRecoLoading(true);
 
-      const res = await fetch("http://localhost:8000/api/recommendations/?limit=5", {
+      const res = await fetch( `http://localhost:8000/api/recommendations/?algo=${selectedRecoModel}&limit=5`,
+        {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -840,7 +853,7 @@ return (
                   w-fit
                 "
               >
-                Personalized feed
+                {selectedRecoModel === "sbert-v1" ? "SBERT" : "TF-IDF"}
               </div>
 
               <Button
@@ -885,7 +898,7 @@ return (
           <div className="mb-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-[hsl(var(--foreground))]">
-                Recommendation debug
+                  Recommendation debug ({selectedRecoModel === "sbert-v1" ? "SBERT" : "TF-IDF"})
               </h4>
 
               <Button

@@ -7,6 +7,7 @@ import Groups from "./Groups";
 
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
+import { Switch } from "@/components/ui/switch";
 import { Toaster } from "sonner";
 
 import { MoreVertical, LogOut } from "lucide-react";
@@ -29,6 +30,8 @@ interface LoginContextType {
   setIsLoggedIn: (v: boolean) => void;
   openLogin: () => void;
   user: CurrentUser | null;
+  selectedRecoModel: "tfidf-v1" | "sbert-v1";
+  setSelectedRecoModel: (v: "tfidf-v1" | "sbert-v1") => void;
 }
 
 export const LoginContext = createContext<LoginContextType>({
@@ -36,6 +39,8 @@ export const LoginContext = createContext<LoginContextType>({
   setIsLoggedIn: () => {},
   openLogin: () => {},
   user: null,
+  selectedRecoModel: "tfidf-v1",
+  setSelectedRecoModel: () => {},
 });
 
 function App() {
@@ -43,6 +48,8 @@ function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const [selectedRecoModel, setSelectedRecoModel] = useState<"tfidf-v1" | "sbert-v1">("tfidf-v1");
 
   const location = useLocation();
 
@@ -99,6 +106,8 @@ function App() {
         setIsLoggedIn,
         openLogin: () => setLoginOpen(true),
         user: currentUser,
+        selectedRecoModel,
+        setSelectedRecoModel,
       }}
     >
       <Toaster
@@ -271,10 +280,72 @@ function App() {
                           border border-[hsl(var(--border))]
                           bg-[hsl(var(--card))]
                           shadow-xl
-                          min-w-[140px]
+                          min-w-[220px]
                           py-1.5
                         "
                       >
+                        <div className="px-3 py-2">
+                          <p className="text-[0.62rem] uppercase tracking-[0.13em] text-[hsl(var(--muted-foreground))]">
+                            Recommendation model
+                          </p>
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span
+                              className={`text-[11px] font-semibold transition-colors ${
+                                selectedRecoModel === "tfidf-v1"
+                                  ? "text-[hsl(var(--primary))]"
+                                  : "text-[hsl(var(--muted-foreground))]"
+                              }`}
+                            >
+                              TF-IDF
+                            </span>
+
+                            <Switch
+                              checked={selectedRecoModel === "sbert-v1"}
+                              onCheckedChange={(checked) =>
+                                setSelectedRecoModel(checked ? "sbert-v1" : "tfidf-v1")
+                              }
+                            />
+
+                            <span
+                              className={`text-[11px] font-semibold transition-colors ${
+                                selectedRecoModel === "sbert-v1"
+                                  ? "text-[hsl(var(--primary))]"
+                                  : "text-[hsl(var(--muted-foreground))]"
+                              }`}
+                            >
+                              SBERT
+                            </span>
+                          </div>
+
+                          <div className="mt-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-2.5 py-2">
+                            <p className="text-[9px] uppercase tracking-[0.1em] text-[hsl(var(--muted-foreground))]">
+                              Current model
+                            </p>
+
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-[hsl(var(--foreground))]">
+                                {selectedRecoModel === "sbert-v1" ? "SBERT" : "TF-IDF"}
+                              </span>
+
+                              <span
+                                className={`
+                                  inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold
+                                  ${
+                                    selectedRecoModel === "sbert-v1"
+                                      ? "bg-[hsl(var(--primary))/0.14] text-[hsl(var(--primary))] border border-[hsl(var(--primary))/0.25]"
+                                      : "bg-[hsl(var(--accent))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))]"
+                                  }
+                                `}
+                              >
+                                Active
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="my-1 h-px bg-[hsl(var(--border))]" />
+
                         <DropdownMenuItem
                           onClick={handleLogout}
                           className="
