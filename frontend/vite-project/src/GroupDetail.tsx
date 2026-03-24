@@ -7,13 +7,21 @@ import {
   CardTitle,
   CardContent
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
-import { Users, Bookmark, Tag, Trash2, LogOut, Send } from "lucide-react";
+import { Users, Bookmark, Tag, Trash2, LogOut, Send, FileDown, FileText } from "lucide-react";
 
 
 interface Group {
@@ -36,6 +44,9 @@ interface Group {
 interface Article {
   id: number;
   title: string;
+  authors: string[];
+  pdf_file: string;
+  created_at?: string;
 }
 
 interface GroupDetailProps {
@@ -51,7 +62,52 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
   const [isAdmin, setIsAdmin] = useState(false);
   const sortByName = (a: any, b: any) =>
   a.first_name.localeCompare(b.first_name);
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [publicTags, setPublicTags] = useState<string[]>([]);
+  const [userTags, setUserTags] = useState<string[]>([]);
+  const [addTagDialogOpen, setAddTagDialogOpen] = useState(false);
+  const [tagArticleId, setTagArticleId] = useState<number | null>(null);
+  const [tagName, setTagName] = useState("");
+  const [tagIsPublic, setTagIsPublic] = useState(false);
+  const [tagSubmitting, setTagSubmitting] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
 
+  const [tagResultOpen, setTagResultOpen] = useState(false);
+  const [tagResultStatus, setTagResultStatus] = useState<"success" | "error">("success");
+  const [tagResultMessage, setTagResultMessage] = useState("");
+
+  const [removeMemberConfirmOpen, setRemoveMemberConfirmOpen] = useState(false);
+  const [removeMemberResultOpen, setRemoveMemberResultOpen] = useState(false);
+  const [removeMemberSubmitting, setRemoveMemberSubmitting] = useState(false);
+
+  const [unlikeConfirmOpen, setUnlikeConfirmOpen] = useState(false);
+  const [unlikeResultOpen, setUnlikeResultOpen] = useState(false);
+  const [unlikeSubmitting, setUnlikeSubmitting] = useState(false);
+  const [unlikeTargetId, setUnlikeTargetId] = useState<number | null>(null);
+  const [unlikeResultStatus, setUnlikeResultStatus] = useState<"success" | "error">("success");
+  const [unlikeResultMessage, setUnlikeResultMessage] = useState("");
+
+  const [leaveGroupConfirmOpen, setLeaveGroupConfirmOpen] = useState(false);
+  const [leaveGroupResultOpen, setLeaveGroupResultOpen] = useState(false);
+  const [leaveGroupSubmitting, setLeaveGroupSubmitting] = useState(false);
+  const [leaveGroupResultStatus, setLeaveGroupResultStatus] = useState<"success" | "error">("success");
+  const [leaveGroupResultMessage, setLeaveGroupResultMessage] = useState("");
+  const [leaveGroupShouldRedirect, setLeaveGroupShouldRedirect] = useState(false);
+
+  const [memberToRemove, setMemberToRemove] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+
+  const [removeMemberResultStatus, setRemoveMemberResultStatus] = useState<"success" | "error">("success");
+  const [removeMemberResultMessage, setRemoveMemberResultMessage] = useState("");
+
+  const [deleteGroupConfirmOpen, setDeleteGroupConfirmOpen] = useState(false);
+  const [deleteGroupResultOpen, setDeleteGroupResultOpen] = useState(false);
+  const [deleteGroupSubmitting, setDeleteGroupSubmitting] = useState(false);
+  const [deleteGroupResultStatus, setDeleteGroupResultStatus] = useState<"success" | "error">("success");
+  const [deleteGroupResultMessage, setDeleteGroupResultMessage] = useState("");
+  const [deleteGroupShouldRedirect, setDeleteGroupShouldRedirect] = useState(false);
 
   
   useEffect(() => {
@@ -129,304 +185,370 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
   }, [group, currentUser]);
 
   const handleOpenAddTagModal = (articleId: number) => {
-    Swal.fire({
-      title: 'Enter Tag',
-      html: `
-        <input type="text" id="tagName" class="swal2-input" placeholder="Tag Name">
-        <label for="isPublic" class="swal2-checkbox" style="display: flex; align-items: center; margin-top: 20px;">
-          <input type="checkbox" id="isPublic" style="width: 24px; height: 24px; margin-right: 8px;"> Public
-        </label>
-        <div style="display: flex; justify-content: center; margin-top: 20px;">
-          <button type="button" id="swal2-confirm" class="swal2-confirm swal2-styled" style="margin-right: 5px;">OK</button>
-          <button type="button" id="swal2-cancel" class="swal2-cancel swal2-styled">Cancel</button>
-        </div>
-      `,
-      showConfirmButton: false,
-      preConfirm: () => {
-
-      },
-      didOpen: () => {
-
-        const confirmButton = Swal.getPopup()?.querySelector('#swal2-confirm') as HTMLElement;
-        confirmButton.onclick = () => {
-          const tagName = (Swal.getPopup()?.querySelector('#tagName') as HTMLInputElement)?.value;
-          const isPublic = (Swal.getPopup()?.querySelector('#isPublic') as HTMLInputElement)?.checked;
-          if (tagName) {
-            handleAddTag(articleId, tagName, isPublic);
-            Swal.close();
-          } else {
-            Swal.showValidationMessage('Tag name is required');
-          }
-        };
-  
-
-        const cancelButton = Swal.getPopup()?.querySelector('#swal2-cancel') as HTMLElement;
-        cancelButton.onclick = () => {
-          Swal.close();
-        };
-      }
-    });
+    setTagArticleId(articleId);
+    setTagName("");
+    setTagIsPublic(false);
+    setTagError(null);
+    setAddTagDialogOpen(true);
   };
 
   const handleShowTags = async (articleId: number) => {
-    const url = `http://localhost:8000/api/article/${articleId}/tags/`;
+    const token = localStorage.getItem("accessToken");
+
     try {
-      const response = await fetch(url, {
+      const response = await fetch(`http://localhost:8000/api/article/${articleId}/tags/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch tags");
+      }
+
+      const { publicTags, userTags } = await response.json();
+
+      setPublicTags(publicTags || []);
+      setUserTags(userTags || []);
+      setTagsModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching tags:", error);
+      setPublicTags(["Error loading tags"]);
+      setUserTags(["Error loading tags"]);
+      setTagsModalOpen(true);
+    }
+  };
+
+  const handleConfirmAddTag = async (): Promise<void> => {
+  if (!tagArticleId) return;
+
+  if (!tagName.trim()) {
+    setTagError("Tag name is required.");
+    return;
+  }
+
+  try {
+    setTagSubmitting(true);
+    setTagError(null);
+
+    const token = localStorage.getItem("accessToken");
+    const response = await fetch("http://localhost:8000/api/add-tag/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        article_id: tagArticleId,
+        tag_name: tagName.trim(),
+        is_public: tagIsPublic,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to add tag to article");
+    }
+
+    const data = await response.json();
+    console.log(data.message);
+
+    setAddTagDialogOpen(false);
+    setTagResultStatus("success");
+    setTagResultMessage("The tag has been successfully added.");
+    setTagResultOpen(true);
+  } catch (error) {
+    console.error("Error:", error);
+    setTagResultStatus("error");
+    setTagResultMessage("Failed to add tag to the article. Please try again.");
+    setTagResultOpen(true);
+  } finally {
+    setTagSubmitting(false);
+  }
+};
+  const openUnlikeConfirm = (articleId: number) => {
+    setUnlikeTargetId(articleId);
+    setUnlikeConfirmOpen(true);
+    setUnlikeResultMessage("");
+  };
+
+ const handleConfirmUnlikeArticleAsGroup = async () => {
+  if (!unlikeTargetId) return;
+
+  const token = localStorage.getItem("accessToken");
+  if (!token || !isAdmin) {
+    setUnlikeConfirmOpen(false);
+    setUnlikeResultStatus("error");
+    setUnlikeResultMessage("You must be logged in and be the group admin to unlike an article.");
+    setUnlikeResultOpen(true);
+    return;
+  }
+
+  setUnlikeSubmitting(true);
+
+  try {
+    const response = await fetch(
+      `http://localhost:8000/api/groups/${groupId}/unlike_article/${unlikeTargetId}/`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      let msg = "Failed to unlike the article for the group.";
+      try {
+        const errorData = await response.json();
+        msg = errorData?.detail || errorData?.message || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    setArticles((prevArticles) =>
+      prevArticles.filter((article) => article.id !== unlikeTargetId)
+    );
+
+    setUnlikeResultStatus("success");
+    setUnlikeResultMessage("Article has been removed from group favourites.");
+  } catch (error) {
+    console.error("Error unliking article for the group:", error);
+    setUnlikeResultStatus("error");
+    setUnlikeResultMessage(
+      error instanceof Error
+        ? error.message
+        : "Something went wrong while removing the article."
+    );
+  } finally {
+    setUnlikeSubmitting(false);
+    setUnlikeConfirmOpen(false);
+    setUnlikeResultOpen(true);
+  }
+};
+  
+
+  const handleKickMember = (memberId: number, memberName: string) => {
+    setMemberToRemove({ id: memberId, name: memberName });
+    setRemoveMemberConfirmOpen(true);
+  };
+
+  const handleConfirmKickMember = async () => {
+    if (!memberToRemove) return;
+
+    const token = localStorage.getItem("accessToken");
+    if (!token || !isAdmin) return;
+
+    try {
+      setRemoveMemberSubmitting(true);
+
+      const response = await fetch(
+        `http://localhost:8000/api/groups/${groupId}/kick_member/${memberToRemove.id}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        let msg = "Failed to remove the member from the group.";
+        try {
+          const errorData = await response.json();
+          msg = errorData?.detail || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      setGroup((prevGroup) => {
+        if (!prevGroup) return null;
+        return {
+          ...prevGroup,
+          members: prevGroup.members.filter((member) => member.id !== memberToRemove.id),
+        };
+      });
+
+      setRemoveMemberConfirmOpen(false);
+      setRemoveMemberResultStatus("success");
+      setRemoveMemberResultMessage("The member has been removed from the group.");
+      setRemoveMemberResultOpen(true);
+      updateGroups();
+    } catch (error) {
+      console.error("Error removing member from the group:", error);
+      setRemoveMemberConfirmOpen(false);
+      setRemoveMemberResultStatus("error");
+      setRemoveMemberResultMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while removing the member."
+      );
+      setRemoveMemberResultOpen(true);
+    } finally {
+      setRemoveMemberSubmitting(false);
+      setMemberToRemove(null);
+    }
+  };
+
+  const openLeaveGroupConfirm = () => {
+    setLeaveGroupResultMessage("");
+    setLeaveGroupShouldRedirect(false);
+    setLeaveGroupConfirmOpen(true);
+  };
+
+  const handleConfirmLeaveGroup = async () => {
+    const token = localStorage.getItem("accessToken");
+
+    if (!token) {
+      setLeaveGroupConfirmOpen(false);
+      setLeaveGroupResultStatus("error");
+      setLeaveGroupResultMessage("You must be logged in to leave the group.");
+      setLeaveGroupResultOpen(true);
+      return;
+    }
+
+    setLeaveGroupSubmitting(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/groups/${groupId}/leave_group/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        let msg = "Failed to leave the group.";
+        try {
+          const errorData = await response.json();
+          msg = errorData?.detail || errorData?.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      updateGroups();
+
+      setLeaveGroupResultStatus("success");
+      setLeaveGroupResultMessage("You have successfully left the group.");
+      setLeaveGroupShouldRedirect(true);
+    } catch (error) {
+      console.error("Error leaving the group:", error);
+      setLeaveGroupResultStatus("error");
+      setLeaveGroupResultMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while leaving the group."
+      );
+      setLeaveGroupShouldRedirect(false);
+    } finally {
+      setLeaveGroupSubmitting(false);
+      setLeaveGroupConfirmOpen(false);
+      setLeaveGroupResultOpen(true);
+    }
+  };
+
+  const openDeleteGroupConfirm = () => {
+    setDeleteGroupResultMessage("");
+    setDeleteGroupShouldRedirect(false);
+    setDeleteGroupConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteGroup = async () => {
+    const token = localStorage.getItem("accessToken");
+
+    if (!token) {
+      setDeleteGroupConfirmOpen(false);
+      setDeleteGroupResultStatus("error");
+      setDeleteGroupResultMessage("You must be logged in to delete a group.");
+      setDeleteGroupResultOpen(true);
+      return;
+    }
+
+    setDeleteGroupSubmitting(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/groups/delete/${groupId}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const msg =
+          data?.detail ||
+          data?.message ||
+          "Failed to delete the group.";
+        throw new Error(msg);
+      }
+
+      await updateGroups();
+
+      setDeleteGroupResultStatus("success");
+      setDeleteGroupResultMessage("The group has been deleted.");
+      setDeleteGroupShouldRedirect(true);
+    } catch (error) {
+      console.error("Error deleting the group:", error);
+      setDeleteGroupResultStatus("error");
+      setDeleteGroupResultMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while deleting the group."
+      );
+      setDeleteGroupShouldRedirect(false);
+    } finally {
+      setDeleteGroupSubmitting(false);
+      setDeleteGroupConfirmOpen(false);
+      setDeleteGroupResultOpen(true);
+    }
+  };
+
+  const handleExportBibtex = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/groups/${groupId}/export_bibtex/`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
         },
       });
-      if (!response.ok) {
-        throw new Error('Failed to fetch tags');
+      if (response.ok) {
+        const bibtexText = await response.text();
+        const blob = new Blob([bibtexText], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "group_articles.bib";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        throw new Error('Failed to fetch BibTeX data');
       }
-      const { publicTags, userTags } = await response.json();
-      Swal.fire({
-        title: 'Tags',
-        html: `
-          <h6>Public Tags:</h6>
-          <p>${publicTags.join('; ')}</p>
-          <h6>Your Tags:</h6>
-          <p>${userTags.join('; ')}</p>
-        `,
-        confirmButtonText: 'Close',
-      });
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      console.error('Error exporting BibTeX:', error);
+      Swal.fire('Error!', 'Failed to export BibTeX data.', 'error');
     }
   };
 
-  const handleAddTag = async (articleId: number, tagName: string, isPublic: boolean): Promise<void> => {
-    try {
-      const token = localStorage.getItem('accessToken'); 
-      const response = await fetch('http://localhost:8000/api/add-tag/', { 
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          article_id: articleId,
-          tag_name: tagName,
-          is_public: isPublic,
-        }),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to add tag to article');
-      }
-  
-      const data = await response.json();
-      console.log(data.message); 
-      Swal.fire(
-        'Tag Added!',
-        'The tag has been successfully added.',
-        'success'
-      );
-    } catch (error) {
-      console.error('Error:', error);
-      Swal.fire(
-        'Error!',
-        'Failed to add tag to the article.',
-        'error'
-      )
-    }
+  const handleOpenPdf = (pdfFile: string) => {
+    if (!pdfFile) return;
+    window.open(`http://localhost:8000${pdfFile}`, "_blank");
   };
-
-  const handleUnlikeArticleAsGroup = async (articleId: number) => {
-    const token = localStorage.getItem('accessToken');
-    if (!token || !isAdmin) {
-      Swal.fire('Unauthorized', 'You must be logged in and be the group admin to perform this action.', 'error');
-      return;
-    }
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "Do you really want to unlike this article for the group?",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, unlike it!'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await fetch(`http://localhost:8000/api/groups/${groupId}/unlike_article/${articleId}/`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-          });
-  
-          if (response.ok) {
-            setArticles(prevArticles => prevArticles.filter(article => article.id !== articleId));
-            Swal.fire('Unliked!', 'The article has been unliked for the group.', 'success');
-          } else {
-            const errorData = await response.json();
-            Swal.fire('Failed!', errorData.message || 'Failed to unlike the article for the group.', 'error');
-          }
-        } catch (error) {
-          console.error('Error unliking article for the group:', error);
-          Swal.fire('Error!', 'Something went wrong!', 'error');
-        }
-      }
-    });
-  };
-  
-
-const handleKickMember = async (memberId: number) => {
-  const result = await Swal.fire({
-    title: 'Are you sure?',
-    text: "You won't be able to revert this!",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, kick them!'
-  });
-
-  if (result.isConfirmed) {
-    const token = localStorage.getItem('accessToken');
-    if (token && isAdmin) {
-      try {
-        const response = await fetch(`http://localhost:8000/api/groups/${groupId}/kick_member/${memberId}/`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        });
-
-        if (response.ok) {
-          setGroup(prevGroup => {
-            if (!prevGroup) return null;
-            return {
-              ...prevGroup,
-              members: prevGroup.members.filter(member => member.id !== memberId),
-            };
-          });
-          Swal.fire(
-            'Kicked!',
-            'The member has been kicked out of the group.',
-            'success'
-          );
-        } else {
-          console.error('Failed to kick the member from the group.');
-        }
-      } catch (error) {
-        console.error('Error kicking member from the group:', error);
-      }
-    }
-  }
-};
-
-const handleLeaveGroup = async () => {
-  Swal.fire({
-    title: 'Are you sure?',
-    text: "You will leave this group and won't be able to revert this!",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, leave it!'
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      const token = localStorage.getItem('accessToken');
-      try {
-        const response = await fetch(`http://localhost:8000/api/groups/${groupId}/leave_group/`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to leave the group.');
-        }
-
-        Swal.fire('Left!', 'You have left the group.', 'success');
-        updateGroups(); 
-        onBack(); 
-      } catch (error) {
-        console.error('Error leaving the group:', error);
-        Swal.fire('Error!', 'Something went wrong!', 'error');
-      }
-    }
-  });
-};
-
-
-const handleDeleteGroup = async () => {
-  Swal.fire({
-    title: 'Are you sure?',
-    text: "You won't be able to revert this!",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, delete it!'
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        Swal.fire('Unauthorized', 'You must be logged in to delete a group.', 'error');
-        return;
-      }
-
-      try {
-        const response = await fetch(`http://localhost:8000/api/groups/delete/${groupId}/`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete the group.');
-        }
-
-        Swal.fire('Deleted!', 'The group has been deleted.', 'success');
-        updateGroups(); 
-        onBack(); 
-    
-      } catch (error) {
-        console.error('Error deleting the group:', error);
-        Swal.fire('Error!', 'Something went wrong!', 'error');
-      }
-    }
-  });
-};
-
-const handleExportBibtex = async () => {
-  try {
-    const response = await fetch(`http://localhost:8000/api/groups/${groupId}/export_bibtex/`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-      },
-    });
-    if (response.ok) {
-      const bibtexText = await response.text();
-      const blob = new Blob([bibtexText], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "group_articles.bib";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else {
-      throw new Error('Failed to fetch BibTeX data');
-    }
-  } catch (error) {
-    console.error('Error exporting BibTeX:', error);
-    Swal.fire('Error!', 'Failed to export BibTeX data.', 'error');
-  }
-};
 
 
 return (
+  <>
   <Card className="relative bg-card/70 backdrop-blur-xl border border-border/60 rounded-3xl shadow-xl p-6 sm:p-8 space-y-8">
     {/* ---------- HEADER ---------- */}
     <CardHeader className="p-0">
@@ -502,10 +624,16 @@ return (
 
                   {isAdmin && currentUser !== m.id && (
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
-                      className="rounded-full text-xs"
-                      onClick={() => handleKickMember(m.id)}
+                      className="
+                        rounded-full text-xs
+                        border-[hsl(var(--destructive))]/60
+                        bg-[hsl(var(--destructive))]/10
+                        text-[hsl(var(--destructive))]
+                        hover:bg-[hsl(var(--destructive))]/20
+                      "
+                      onClick={() => handleKickMember(m.id, `${m.first_name} ${m.last_name}`)}
                     >
                       Remove
                     </Button>
@@ -548,21 +676,56 @@ return (
           {articles.length > 0 ? (
             <ul className="space-y-4">
               {articles.map((article) => (
-                <li
-                  key={article.id}
-                  className="bg-accent/60 p-4 rounded-xl border border-border shadow-sm hover:bg-accent transition-colors"
-                >
-                  <p className="font-medium mb-3 text-sm leading-snug">
-                    {article.title.length > 110
-                      ? article.title.slice(0, 110) + "..."
-                      : article.title}
-                  </p>
+              <li
+                key={article.id}
+                className="
+                  bg-accent/60 p-4 rounded-xl border border-border shadow-sm
+                  hover:bg-accent transition-colors
+                "
+              >
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="font-semibold text-[hsl(var(--foreground))] text-base leading-snug">
+                      {article.title.length > 120
+                        ? article.title.slice(0, 120) + "..."
+                        : article.title}
+                    </h3>
+
+                    <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                      Authors: {article.authors?.length ? article.authors.join(", ") : "Unknown"}
+                    </p>
+                  </div>
 
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-full text-xs"
+                      onClick={() => handleOpenPdf(article.pdf_file)}
+                      className="
+                        rounded-full text-xs
+                        border border-[hsl(var(--border))]
+                        bg-[hsl(var(--card))]
+                        text-[hsl(var(--foreground))]
+                        hover:bg-[hsl(var(--muted))]
+                        shadow-sm
+                      "
+                    >
+                      <FileText className="w-3.5 h-3.5 mr-1" />
+                      Open PDF
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="
+                        rounded-full text-xs
+                        border border-[hsl(var(--primary))/60]
+                        bg-[hsl(var(--accent))]
+                        text-[hsl(var(--primary))]
+                        hover:bg-[hsl(var(--primary))/10]
+                        shadow-sm
+                        transition-colors
+                      "
                       onClick={() => handleShowTags(article.id)}
                     >
                       <Tag className="w-3 h-3 mr-1" />
@@ -571,26 +734,38 @@ return (
 
                     <Button
                       size="sm"
-                      className="rounded-full text-xs"
                       onClick={() => handleOpenAddTagModal(article.id)}
+                      className="
+                        rounded-full text-xs
+                        bg-[hsl(var(--primary))]
+                        text-[hsl(var(--primary-foreground))]
+                        hover:brightness-110
+                        shadow-sm
+                        transition-colors
+                      "
                     >
                       Add tag
                     </Button>
 
                     {isAdmin && (
                       <Button
-                        variant="destructive"
+                        variant="outline"
                         size="sm"
-                        className="rounded-full text-xs"
-                        onClick={() =>
-                          handleUnlikeArticleAsGroup(article.id)
-                        }
+                        className="
+                          rounded-full text-xs
+                          border-[hsl(var(--destructive))]/60
+                          bg-[hsl(var(--destructive))]/10
+                          text-[hsl(var(--destructive))]
+                          hover:bg-[hsl(var(--destructive))]/20
+                        "
+                        onClick={() => openUnlikeConfirm(article.id)}
                       >
                         Unlike
                       </Button>
                     )}
                   </div>
-                </li>
+                </div>
+              </li>
               ))}
             </ul>
           ) : (
@@ -599,6 +774,7 @@ return (
         </ScrollArea>
       </CardContent>
     </Card>
+    
 
     <Separator />
 
@@ -609,10 +785,18 @@ return (
         {isAdmin && <InviteButton groupId={groupId} />}
 
         <Button
-          variant="secondary"
-          className="rounded-full"
+          variant="outline"
+          className="
+            rounded-full flex items-center gap-2
+            border-[hsl(var(--primary))]/40
+            bg-[hsl(var(--primary))]/10
+            text-[hsl(var(--primary))]
+            hover:bg-[hsl(var(--primary))]/15
+            shadow-sm
+          "
           onClick={handleExportBibtex}
         >
+          <FileDown className="w-4 h-4" />
           Export BibTeX
         </Button>
       </div>
@@ -621,18 +805,30 @@ return (
       <div className="flex flex-wrap gap-3">
         {isAdmin ? (
           <Button
-            variant="destructive"
-            className="rounded-full flex items-center gap-2"
-            onClick={handleDeleteGroup}
+            variant="outline"
+            className="
+              rounded-full flex items-center gap-2
+              border-[hsl(var(--destructive))]/60
+              bg-[hsl(var(--destructive))]/10
+              text-[hsl(var(--destructive))]
+              hover:bg-[hsl(var(--destructive))]/20
+            "
+            onClick={openDeleteGroupConfirm}
           >
             <Trash2 className="w-4 h-4" />
             Delete Group
           </Button>
         ) : (
           <Button
-            variant="destructive"
-            className="rounded-full flex items-center gap-2"
-            onClick={handleLeaveGroup}
+            variant="outline"
+            className="
+              rounded-full flex items-center gap-2
+              border-[hsl(var(--destructive))]/60
+              bg-[hsl(var(--destructive))]/10
+              text-[hsl(var(--destructive))]
+              hover:bg-[hsl(var(--destructive))]/20
+            "
+            onClick={openLeaveGroupConfirm}
           >
             <LogOut className="w-4 h-4" />
             Leave Group
@@ -641,6 +837,498 @@ return (
       </div>
     </div>
   </Card>
+
+  {/* ---------- TAGS MODAL ---------- */}
+  <Dialog open={tagsModalOpen} onOpenChange={setTagsModalOpen}>
+    <DialogContent
+      className="
+        max-w-md 
+        rounded-3xl 
+        bg-white/90
+        backdrop-blur-xl 
+        p-8 
+        shadow-2xl
+        border border-[hsl(var(--border))]
+      "
+    >
+      <DialogHeader className="text-center">
+        <DialogTitle className="text-3xl font-semibold text-[hsl(var(--foreground))] tracking-tight">
+          Article Tags
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+          Public & personal tags attached to this article
+        </p>
+      </DialogHeader>
+
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] text-center">
+          Public Tags
+        </h3>
+
+        <div className="mt-3 text-center">
+          {publicTags.length > 0 ? (
+            <div className="flex flex-wrap justify-center gap-3">
+              {publicTags.map((tag, i) => (
+                <span
+                  key={i}
+                  className="
+                    px-4 py-1.5 
+                    bg-[hsl(var(--accent))] 
+                    text-[hsl(var(--foreground))] 
+                    rounded-full 
+                    text-sm 
+                    border border-[hsl(var(--border))]
+                    shadow-sm
+                  "
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <i className="text-[hsl(var(--muted-foreground))]">
+              No public tags available
+            </i>
+          )}
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] text-center">
+          Your Tags
+        </h3>
+
+        <div className="mt-3 text-center">
+          {userTags.length > 0 ? (
+            <div className="flex flex-wrap justify-center gap-3">
+              {userTags.map((tag, i) => (
+                <span
+                  key={i}
+                  className="
+                    px-4 py-1.5 
+                    bg-[hsl(var(--primary))/0.15] 
+                    text-[hsl(var(--primary))] 
+                    rounded-full 
+                    text-sm 
+                    border border-[hsl(var(--primary))/0.4]
+                    shadow-sm
+                  "
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <i className="text-[hsl(var(--muted-foreground))]">
+              You have not added any tags
+            </i>
+          )}
+        </div>
+      </div>
+
+      <DialogFooter className="mt-8 flex justify-center">
+        <Button
+          onClick={() => setTagsModalOpen(false)}
+          className="
+            rounded-lg px-8 py-2 
+            bg-[hsl(var(--primary))] 
+            text-[hsl(var(--primary-foreground))] 
+            hover:brightness-110 
+            shadow-md
+          "
+        >
+          Close
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- ADD TAG MODAL ---------- */}
+  <Dialog open={addTagDialogOpen} onOpenChange={setAddTagDialogOpen}>
+  <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+    <DialogHeader>
+      <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+        Add tag
+      </DialogTitle>
+      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+        Enter a tag for this article and choose whether it should be public.
+      </p>
+    </DialogHeader>
+
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+          Tag name
+        </label>
+        <Input
+          value={tagName}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTagName(e.target.value)}
+          placeholder="e.g. optimization, transformers…"
+          className="
+            h-10 rounded-xl
+            border border-[hsl(var(--border))]
+            bg-[hsl(var(--accent))]
+            text-sm
+            shadow-sm
+            focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))] focus-visible:ring-offset-0
+          "
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          id="tag-is-public"
+          type="checkbox"
+          checked={tagIsPublic}
+          onChange={(e) => setTagIsPublic(e.target.checked)}
+          className="h-4 w-4 rounded border-[hsl(var(--border))]"
+        />
+        <label
+          htmlFor="tag-is-public"
+          className="text-sm text-[hsl(var(--foreground))]"
+        >
+          Public tag
+        </label>
+      </div>
+
+      {tagError && (
+        <p className="text-sm text-[hsl(var(--destructive))]">
+          {tagError}
+        </p>
+      )}
+    </div>
+
+    <DialogFooter className="mt-4 flex justify-end gap-3">
+      <Button
+        variant="outline"
+        onClick={() => setAddTagDialogOpen(false)}
+        className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+      >
+        Cancel
+      </Button>
+
+      <Button
+        onClick={handleConfirmAddTag}
+        disabled={tagSubmitting}
+        className="
+          rounded-xl bg-[hsl(var(--primary))]
+          text-[hsl(var(--primary-foreground))]
+          hover:brightness-110 px-5
+          disabled:opacity-60 disabled:cursor-not-allowed
+        "
+      >
+        Add tag
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+  </Dialog> 
+
+  {/* ---------- ADD TAG RESULT MODAL ---------- */}
+  <Dialog open={tagResultOpen} onOpenChange={setTagResultOpen}>
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          {tagResultStatus === "success" ? "Tag added" : "Tag error"}
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {tagResultMessage}
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4">
+        <Button
+          onClick={() => setTagResultOpen(false)}
+          className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+        >
+          OK
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- REMOVE MEMBER CONFIRM MODAL ---------- */}
+  <Dialog open={removeMemberResultOpen} onOpenChange={setRemoveMemberResultOpen}>
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          {removeMemberResultStatus === "success" ? "Member removed" : "Action failed"}
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {removeMemberResultMessage}
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4">
+        <Button
+          onClick={() => setRemoveMemberResultOpen(false)}
+          className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+        >
+          OK
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- REMOVE MEMBER RESULT MODAL ---------- */}
+  <Dialog open={removeMemberConfirmOpen} onOpenChange={setRemoveMemberConfirmOpen}>
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          Remove member?
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {memberToRemove
+            ? `${memberToRemove.name} will be removed from this group. This action can be reversed only by inviting them again.`
+            : "This member will be removed from the group."}
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4 flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setRemoveMemberConfirmOpen(false)}
+          className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          onClick={handleConfirmKickMember}
+          disabled={removeMemberSubmitting}
+          variant="outline"
+          className="
+            rounded-xl px-4 py-2 text-sm font-semibold
+            border-[hsl(var(--destructive))]/70
+            bg-[hsl(var(--destructive))]/10
+            text-[hsl(var(--destructive))]
+            hover:bg-[hsl(var(--destructive))]/20
+            disabled:opacity-60 disabled:cursor-not-allowed
+          "
+        >
+          Remove
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- UNLIKE ARTICLE CONFIRM MODAL ---------- */}
+  <Dialog open={unlikeConfirmOpen} onOpenChange={setUnlikeConfirmOpen}>
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          Remove article from group favourites?
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          This article will no longer be liked by the group and may affect group-based recommendations.
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4 flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setUnlikeConfirmOpen(false)}
+          className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          onClick={handleConfirmUnlikeArticleAsGroup}
+          disabled={unlikeSubmitting}
+          variant="outline"
+          className="
+            rounded-xl px-4 py-2 text-sm font-semibold
+            border-[hsl(var(--destructive))]/70
+            bg-[hsl(var(--destructive))]/10
+            text-[hsl(var(--destructive))]
+            hover:bg-[hsl(var(--destructive))]/20
+            disabled:opacity-60 disabled:cursor-not-allowed
+          "
+        >
+          Remove
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- UNLIKE ARTICLE RESULT MODAL ---------- */}
+  <Dialog open={unlikeResultOpen} onOpenChange={setUnlikeResultOpen}>
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          {unlikeResultStatus === "success" ? "Article removed" : "Action failed"}
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {unlikeResultMessage}
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4">
+        <Button
+          onClick={() => setUnlikeResultOpen(false)}
+          className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+        >
+          OK
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- LEAVE GROUP CONFIRM MODAL ---------- */}
+  <Dialog open={leaveGroupConfirmOpen} onOpenChange={setLeaveGroupConfirmOpen}>
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          Leave group?
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          You will leave this group and lose access to its member-only actions until you are invited again.
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4 flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setLeaveGroupConfirmOpen(false)}
+          className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          onClick={handleConfirmLeaveGroup}
+          disabled={leaveGroupSubmitting}
+          variant="outline"
+          className="
+            rounded-xl px-4 py-2 text-sm font-semibold
+            border-[hsl(var(--destructive))]/70
+            bg-[hsl(var(--destructive))]/10
+            text-[hsl(var(--destructive))]
+            hover:bg-[hsl(var(--destructive))]/20
+            disabled:opacity-60 disabled:cursor-not-allowed
+          "
+        >
+          Leave group
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- LEAVE GROUP RESULT MODAL ---------- */}
+  <Dialog
+    open={leaveGroupResultOpen}
+    onOpenChange={(open) => {
+      setLeaveGroupResultOpen(open);
+      if (!open && leaveGroupShouldRedirect) {
+        onBack();
+      }
+    }}
+  >
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          {leaveGroupResultStatus === "success" ? "Group left" : "Action failed"}
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {leaveGroupResultMessage}
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4">
+        <Button
+          onClick={() => {
+            setLeaveGroupResultOpen(false);
+            if (leaveGroupShouldRedirect) {
+              onBack();
+            }
+          }}
+          className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+        >
+          OK
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* ---------- DELETE GROUP CONFIRM MODAL ---------- */}
+  <Dialog open={deleteGroupConfirmOpen} onOpenChange={setDeleteGroupConfirmOpen}>
+  <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+    <DialogHeader>
+      <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+        Delete group?
+      </DialogTitle>
+      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+        This will permanently delete the group and remove access for all members. This action cannot be undone.
+      </p>
+    </DialogHeader>
+
+    <DialogFooter className="mt-4 flex justify-end gap-3">
+      <Button
+        variant="outline"
+        onClick={() => setDeleteGroupConfirmOpen(false)}
+        className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+      >
+        Cancel
+      </Button>
+
+      <Button
+        onClick={handleConfirmDeleteGroup}
+        disabled={deleteGroupSubmitting}
+        variant="outline"
+        className="
+          rounded-xl px-4 py-2 text-sm font-semibold
+          border-[hsl(var(--destructive))]/70
+          bg-[hsl(var(--destructive))]/10
+          text-[hsl(var(--destructive))]
+          hover:bg-[hsl(var(--destructive))]/20
+          disabled:opacity-60 disabled:cursor-not-allowed
+        "
+      >
+        Delete group
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+  </Dialog>
+
+ {/* ---------- DELETE GROUP RESULT MODAL ---------- */}
+ <Dialog
+    open={deleteGroupResultOpen}
+    onOpenChange={(open) => {
+      setDeleteGroupResultOpen(open);
+      if (!open && deleteGroupShouldRedirect) {
+        onBack();
+      }
+    }}
+  >
+    <DialogContent className="max-w-md rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+          {deleteGroupResultStatus === "success" ? "Group deleted" : "Action failed"}
+        </DialogTitle>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          {deleteGroupResultMessage}
+        </p>
+      </DialogHeader>
+
+      <DialogFooter className="mt-4">
+        <Button
+          onClick={() => {
+            setDeleteGroupResultOpen(false);
+            if (deleteGroupShouldRedirect) {
+              onBack();
+            }
+          }}
+          className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
+        >
+          OK
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog> 
+  
+  </>
 );
 
 

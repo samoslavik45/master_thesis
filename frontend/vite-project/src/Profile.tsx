@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-
+import { Tag, Plus } from "lucide-react";
 
 import {
   Dialog,
@@ -454,7 +454,10 @@ const Profile = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ action: "like" }),
+          body: JSON.stringify({
+            action: "like",
+            algo: selectedRecoModel,
+          }),
         }
       );
 
@@ -484,7 +487,10 @@ const Profile = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ action: "dismiss" }),
+          body: JSON.stringify({
+            action: "dismiss",
+            algo: selectedRecoModel,
+          }),
         }
       );
 
@@ -508,6 +514,17 @@ if (loading) {
     </div>
   );
 }
+
+const handleOpenPdf = (pdfFile?: string) => {
+  if (!pdfFile) return;
+
+  const normalizedPath = pdfFile.startsWith("/")
+    ? pdfFile
+    : `/${pdfFile}`;
+
+  window.open(`http://localhost:8000/media${normalizedPath}`, "_blank");
+};
+
 
 return (
   <>
@@ -720,23 +737,42 @@ return (
                         </p>
                       </div>
 
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setCurrentArticleToEdit(article.id);
-                          setShowEditModal(true);
-                        }}
-                        className="
-                          rounded-xl px-4
-                          bg-[hsl(var(--accent))]
-                          border border-[hsl(var(--border))]
-                          text-[hsl(var(--foreground))]
-                          hover:bg-[hsl(var(--muted))]
-                          transition
-                        "
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <Button
+                          onClick={() => handleOpenPdf(article.pdf_file)}
+                          size="sm"
+                          className="
+                            rounded-xl px-3 py-1.5 text-xs font-medium
+                            bg-[hsl(var(--primary))]
+                            text-[hsl(var(--primary-foreground))]
+                            hover:brightness-110
+                            shadow-sm
+                            transition-colors
+                          "
+                        >
+                          Open
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setCurrentArticleToEdit(article.id);
+                            setShowEditModal(true);
+                          }}
+                          className="
+                            rounded-xl px-3 py-1.5 text-xs font-medium
+                            bg-[hsl(var(--accent))]
+                            text-[hsl(var(--primary))]
+                            border border-[hsl(var(--primary))/40]
+                            hover:bg-[hsl(var(--muted))]
+                            hover:border-[hsl(var(--primary))/55]
+                            shadow-sm transition-colors
+                          "
+                          size="sm"
+                        >
+                          Edit
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -749,82 +785,105 @@ return (
             <ScrollArea className="h-[480px] pr-3">
               <div className="space-y-4">
                 {likedArticles.map((article) => (
-                  <Card
-                    key={article.id}
-                    className="
-                      bg-[hsl(var(--muted))]
-                      border border-[hsl(var(--border))]
-                      rounded-xl p-4 shadow-sm
-                      hover:bg-[hsl(var(--card))]
-                      transition
-                    "
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg">
-                          {article.title}
-                        </h3>
+                <Card
+                  key={article.id}
+                  className="
+                    bg-[hsl(var(--muted))]
+                    border border-[hsl(var(--border))]
+                    rounded-xl p-4 shadow-sm
+                    hover:bg-[hsl(var(--card))]
+                    transition
+                  "
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg">
+                        {article.title}
+                      </h3>
 
-                        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                          Authors: {article.authors.join(", ")}
-                        </p>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                        Authors: {article.authors.join(", ")}
+                      </p>
 
-                        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                          Liked: {new Date(article.created_at).toLocaleDateString("cs-CZ")}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          onClick={() => showTags(article.id)}
-                          size="sm"
-                          variant="outline"
-                          className="
-                            rounded-xl px-3 py-1.5 text-xs font-medium
-                            border border-[hsl(var(--primary))/60]
-                            bg-[hsl(var(--accent))]
-                            text-[hsl(var(--primary))]
-                            hover:bg-[hsl(var(--primary))/10]
-                            shadow-sm
-                            transition-colors
-                          "
-                        >
-                          Show tags
-                        </Button>
-
-                        <Button
-                          onClick={() => handleOpenAddTagModal(article.id)}
-                          size="sm"
-                          className="
-                            rounded-xl px-3 py-1.5 text-xs font-medium
-                            bg-[hsl(var(--primary))]
-                            text-[hsl(var(--primary-foreground))]
-                            hover:brightness-110
-                            shadow-sm
-                            transition-colors
-                          "
-                        >
-                          Add tag
-                        </Button>
-
-                        <Button
-                          onClick={() => openUnlikeConfirm(article.id)}
-                          size="sm"
-                          variant="outline"
-                          className="
-                            rounded-xl px-3 py-1.5 text-xs font-medium
-                            border-[hsl(var(--destructive))]/70
-                            bg-[hsl(var(--destructive))]/10
-                            text-[hsl(var(--destructive))]
-                            hover:bg-[hsl(var(--destructive))]/20
-                            transition-colors
-                          "
-                        >
-                          Unlike
-                        </Button>
-                      </div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                        Liked: {new Date(article.created_at).toLocaleDateString("cs-CZ")}
+                      </p>
                     </div>
-                  </Card>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        onClick={() => handleOpenPdf(article.pdf_file)}
+                        size="sm"
+                        className="
+                          rounded-full px-3 py-1.5 text-xs font-medium
+                          bg-[hsl(var(--primary))]
+                          text-[hsl(var(--primary-foreground))]
+                          hover:brightness-110
+                          shadow-sm transition-colors
+                          whitespace-nowrap
+                        "
+                      >
+                        Open
+                      </Button>
+
+                      <Button
+                        onClick={() => showTags(article.id)}
+                        size="sm"
+                        variant="outline"
+                        className="
+                          rounded-full px-3 py-1.5 text-xs font-medium
+                          inline-flex items-center gap-1
+                          border border-[hsl(var(--border))]
+                          bg-[hsl(var(--card))]
+                          text-[hsl(var(--foreground))]
+                          hover:bg-[hsl(var(--muted))]
+                          shadow-sm transition-colors
+                          whitespace-nowrap
+                        "
+                      >
+                        <Tag className="w-3.5 h-3.5" />
+                        Tags
+                      </Button>
+
+                      <Button
+                        onClick={() => handleOpenAddTagModal(article.id)}
+                        size="sm"
+                        variant="outline"
+                        className="
+                          rounded-full px-3 py-1.5 text-xs font-medium
+                          inline-flex items-center gap-1
+                          bg-[hsl(var(--accent))]
+                          text-[hsl(var(--primary))]
+                          border border-[hsl(var(--primary))/40]
+                          hover:bg-[hsl(var(--muted))]
+                          hover:border-[hsl(var(--primary))/55]
+                          shadow-sm transition-colors
+                          whitespace-nowrap
+                        "
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Tag
+                      </Button>
+
+                      <Button
+                        onClick={() => openUnlikeConfirm(article.id)}
+                        size="sm"
+                        variant="outline"
+                        className="
+                          rounded-full px-2.5 py-1.5 text-xs font-medium
+                          border border-[hsl(var(--destructive))]/40
+                          bg-transparent
+                          text-[hsl(var(--destructive))]
+                          hover:bg-[hsl(var(--destructive))]/10
+                          transition-colors
+                          whitespace-nowrap
+                        "
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
                 ))}
               </div>
             </ScrollArea>

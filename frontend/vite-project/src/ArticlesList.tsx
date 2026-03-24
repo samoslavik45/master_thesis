@@ -1,7 +1,7 @@
 // Modernized ArticlesList with full original functionality preserved
 // Using shadcn/ui components and badges for categories & keywords
 
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import { Article, Category } from "./types";
 import axios from "axios";
 import fileDownload from "js-file-download";
@@ -63,38 +63,54 @@ const handlePdfMetadataExport = (pathToFile: string) => {
 /* --------------- COMPONENT ---------------- */
 
 const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, groups }) => {
-  const [expanded, setExpanded] = useState<number[]>([]);
-  const [similarOpen, setSimilarOpen] = useState<number[]>([]);
+  const PAGE_SIZE = 5;
+
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [similarOpenId, setSimilarOpenId] = useState<number | null>(null);
   const [similar, setSimilar] = useState<Record<number, any[]>>({});
-  const [showFullAbstract, setShowFullAbstract] = useState<number[]>([]);
+  const [showFullAbstractId, setShowFullAbstractId] = useState<number | null>(null);
+
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [publicTags, setPublicTags] = useState<string[]>([]);
   const [userTags, setUserTags] = useState<string[]>([]);
   const [likeDialogOpen, setLikeDialogOpen] = useState(false);
   const [likeGroupDialogOpen, setLikeGroupDialogOpen] = useState(false);
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
-  const [selectedSimilar, setSelectedSimilar] = useState<any | null>(null);
-  const { selectedRecoModel } = useContext(LoginContext);
-  
 
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  const { selectedRecoModel } = useContext(LoginContext);
+
+  const clearArticleDetailState = (id: number) => {
+    setShowFullAbstractId((prev) => (prev === id ? null : prev));
+    setSimilarOpenId((prev) => (prev === id ? null : prev));
+    setSimilar((prev) => {
+      if (!(id in prev)) return prev;
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+  };
 
   const toggleAbstract = (id: number) => {
-    setShowFullAbstract((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setShowFullAbstractId((prev) => (prev === id ? null : id));
   };
-
 
   const toggleExpanded = (id: number) => {
-    setExpanded((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
+    if (expandedId === id) {
+      clearArticleDetailState(id);
+      setExpandedId(null);
+      return;
+    }
 
-  const toggleSimilar = (id: number) => {
-    setSimilarOpen((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    if (expandedId !== null) {
+      clearArticleDetailState(expandedId);
+    }
+
+    setExpandedId(id);
+    setShowFullAbstractId(null);
+    setSimilarOpenId(null);
   };
 
   const fetchSimilar = async (articleId: number) => {
@@ -106,6 +122,15 @@ const ArticlesList: React.FC<ArticlesListProps> = ({ articles, isLoggedIn, group
       setSimilar((prev) => ({ ...prev, [articleId]: data }));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const toggleSimilar = async (id: number) => {
+    const isOpening = similarOpenId !== id;
+    setSimilarOpenId(isOpening ? id : null);
+
+    if (isOpening && !similar[id]) {
+      await fetchSimilar(id);
     }
   };
 
@@ -275,8 +300,38 @@ const confirmGroupLike = async (groupId: number) => {
 
 useEffect(() => {
   setSimilar({});
-  setSimilarOpen([]);
+  setSimilarOpenId(null);
 }, [selectedRecoModel]);
+
+useEffect(() => {
+  setVisibleCount(PAGE_SIZE);
+  setExpandedId(null);
+  setSimilarOpenId(null);
+  setShowFullAbstractId(null);
+  setSimilar({});
+}, [articles]);
+
+useEffect(() => {
+  if (visibleCount >= articles.length) return;
+
+  const node = loadMoreRef.current;
+  if (!node) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, articles.length));
+      }
+    },
+    {
+      rootMargin: "200px",
+    }
+  );
+
+  observer.observe(node);
+
+  return () => observer.disconnect();
+}, [visibleCount, articles.length]);
 
 
 
@@ -326,19 +381,31 @@ const showTags = async (articleId: number) => {
 };
 
 const handleOpenSimilarArticle = (targetId: number) => {
-  // rozbaliť cieľový článok
-  setExpanded((prev) =>
-    prev.includes(targetId) ? prev : [...prev, targetId]
-  );
+  const targetIndex = articles.findIndex((article) => article.id === targetId);
 
-  // scroll na kartu článku (ak sa nachádza v zozname)
-  const el = document.getElementById(`article-${targetId}`);
-  if (el) {
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (targetIndex >= 0) {
+    setVisibleCount((prev) =>
+      Math.max(prev, Math.min(targetIndex + 1, articles.length))
+    );
   }
+
+  if (expandedId !== null && expandedId !== targetId) {
+    clearArticleDetailState(expandedId);
+  }
+
+  setExpandedId(targetId);
+  setShowFullAbstractId(null);
+  setSimilarOpenId(null);
+
+  setTimeout(() => {
+    const el = document.getElementById(`article-${targetId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, 50);
 };
 
-
+const visibleArticles = articles.slice(0, visibleCount);
 
   // ArticlesList.tsx – nový return blok
 return (
@@ -358,10 +425,10 @@ return (
             shadow-[0_0_40px_rgba(0,0,0,0.08)]
           "
         >
-      {articles?.map((article) => {
-        const isExpanded = expanded.includes(article.id);
-        const similarShown = similarOpen.includes(article.id);
-        const isFullAbstract = showFullAbstract.includes(article.id);
+      {visibleArticles.map((article) => {
+        const isExpanded = expandedId === article.id;
+        const similarShown = similarOpenId === article.id;
+        const isFullAbstract = showFullAbstractId === article.id;
 
         const catList: any[] = (article as any).categories || [];
         const kwList: any[] = (article as any).keywords || [];
@@ -788,10 +855,7 @@ return (
                   <div className="">
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        toggleSimilar(article.id);
-                        fetchSimilar(article.id);
-                      }}
+                      onClick={() => toggleSimilar(article.id)}
                       className="
                         inline-flex items-center gap-2
                         h-9 px-4 text-xs md:text-sm font-medium
@@ -899,48 +963,13 @@ return (
                               </p>
 
                               <div className="flex flex-wrap items-center gap-2">
-                                {/* VIEW DETAILS */}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // nespúšťaj click na card
-                                    handleOpenSimilarArticle(sim.id);
-                                  }}
-                                  className="
-                                    inline-flex items-center gap-2
-                                    h-8 px-3 text-[0.75rem] font-medium
-                                    rounded-full
-                                    border border-[hsl(var(--border))]
-                                    bg-[hsl(var(--card))]
-                                    text-[hsl(var(--foreground))]
-                                    shadow-[0_1px_4px_rgba(0,0,0,0.06)]
-                                    hover:bg-[hsl(var(--muted))]
-                                    hover:shadow-[0_2px_8px_rgba(0,0,0,0.10)]
-                                    hover:-translate-y-[1px]
-                                    transition-all duration-200
-                                  "
-                                >
-                                  <span
-                                    className="
-                                      inline-flex h-5 w-5 items-center justify-center
-                                      rounded-full
-                                      bg-[hsl(var(--primary))/0.06]
-                                      text-[0.7rem]
-                                    "
-                                  >
-                                    👁️
-                                  </span>
-                                  <span>View details</span>
-                                </Button>
-
                                 {/* OPEN PDF */}
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation(); // aby sa neotváral detail pri kliku na PDF
-                                    window.open(`http://localhost:8000/media/${sim.pdf_file}`, "_blank");
+                                    window.open(`${sim.pdf_file}`, "_blank");
                                   }}
                                   className="
                                     inline-flex items-center gap-2
@@ -984,6 +1013,14 @@ return (
           </div>
         );
       })}
+      {visibleCount < articles.length && (
+        <div
+          ref={loadMoreRef}
+          className="h-12 flex items-center justify-center text-sm text-[hsl(var(--muted-foreground))]"
+        >
+          Loading more articles...
+        </div>
+      )}
     </div>
   )}
 

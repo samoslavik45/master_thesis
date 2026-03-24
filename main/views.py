@@ -1,4 +1,5 @@
 from enum import member
+from linecache import cache
 
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -675,7 +676,7 @@ def like_article_as_group(request, group_id):
 
         GroupArticleLike.objects.create(group=group, article=article)
 
-        refresh_recommendations_for_all_models(user, limit=8)
+        refresh_recommendations_for_all_models(request.user, limit=8)
 
         return Response({'message': 'Článok bol úspešne liknutý skupinou.'}, status=status.HTTP_201_CREATED)
 
@@ -810,7 +811,7 @@ def unlike_article_as_group(request, group_id, article_id):
 
     group_article_like.delete()
 
-    refresh_recommendations_for_all_models(user, limit=8)
+    refresh_recommendations_for_all_models(request.user, limit=8)
 
     return Response({'detail': 'Article has been unliked by the group.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -1155,10 +1156,17 @@ def get_recommendations(request):
         .first()
     )
 
-    if not cache:
-        payload = refresh_recommendations_for_all_models(user, limit=8)
-    else:
-        payload = cache.payload[:limit]
+    if not cache or not cache.payload:
+        refresh_recommendations_for_all_models(user, limit=limit)
+
+        cache = (
+            RecommendationCache.objects
+            .filter(user=user, algo=algo)
+            .order_by('-created_at')
+            .first()
+        )
+
+    payload = cache.payload[:limit] if cache and cache.payload else []
 
     article_ids = [item['id'] for item in payload]
     if not article_ids:
@@ -1187,6 +1195,7 @@ def get_recommendations(request):
 def recommendation_feedback(request, article_id):
     user = request.user
     action = request.data.get('action')
+    algo = request.data.get('algo', 'tfidf-v1')
 
     if action not in ['like', 'dismiss']:
         return Response(
@@ -1198,10 +1207,9 @@ def recommendation_feedback(request, article_id):
 
     if action == 'like':
         UserInteraction.objects.create(
-            
             user=user,
             article=article,
-            kind=2  # positive feedback on recommendation
+            kind=2
         )
 
         ArticleLike.objects.get_or_create(
@@ -1213,10 +1221,19 @@ def recommendation_feedback(request, article_id):
         UserInteraction.objects.create(
             user=user,
             article=article,
-            kind=3  # dismiss recommendation
+            kind=3
         )
 
-    payload = refresh_recommendations_for_all_models(user, limit=8)
+    refresh_recommendations_for_all_models(user, limit=8)
+
+    cache = (
+        RecommendationCache.objects
+        .filter(user=user, algo=algo)
+        .order_by('-created_at')
+        .first()
+    )
+
+    payload = cache.payload[:8] if cache and cache.payload else []
 
     return Response(
         {
