@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Article, Category, Tag, Keyword, Group, GroupInvite, Author
+from .models import Article, Category, GroupNotification, Tag, Keyword, Group, GroupInvite, Author, GroupMessage
 
 User = get_user_model()
 
@@ -95,3 +95,96 @@ class GroupInviteSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupInvite
         fields = ('id', 'group', 'group_name', 'invited_user', 'sender', 'sender_name', 'accepted')
+
+class GroupMessageSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    article_title = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    parent_id = serializers.IntegerField(source='parent.id', read_only=True)
+    parent_preview = serializers.SerializerMethodField()
+    mentioned_user_ids = serializers.SerializerMethodField()
+    mentioned_usernames = serializers.SerializerMethodField()
+    replies_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GroupMessage
+        fields = [
+            'id',
+            'group',
+            'user',
+            'author_name',
+            'article',
+            'article_title',
+            'parent_id',
+            'parent_preview',
+            'content',
+            'created_at',
+            'updated_at',
+            'can_delete',
+            'mentioned_user_ids',
+            'mentioned_usernames',
+            'replies_count',
+        ]
+        read_only_fields = [
+            'group',
+            'user',
+            'author_name',
+            'article_title',
+            'parent_id',
+            'parent_preview',
+            'created_at',
+            'updated_at',
+            'can_delete',
+            'mentioned_user_ids',
+            'mentioned_usernames',
+            'replies_count',
+        ]
+
+    def get_author_name(self, obj):
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name if full_name else obj.user.username
+
+    def get_article_title(self, obj):
+        return obj.article.title if obj.article else None
+
+    def get_can_delete(self, obj):
+        request = self.context.get('request')
+        return bool(request and request.user.is_authenticated and obj.user == request.user)
+
+    def get_parent_preview(self, obj):
+        if not obj.parent:
+            return None
+        preview = obj.parent.content[:120]
+        return preview + ("..." if len(obj.parent.content) > 120 else "")
+
+    def get_mentioned_user_ids(self, obj):
+        return list(obj.mentioned_users.values_list('id', flat=True))
+
+    def get_mentioned_usernames(self, obj):
+        return list(obj.mentioned_users.values_list('username', flat=True))
+
+    def get_replies_count(self, obj):
+        return obj.replies.count()
+    
+class GroupNotificationSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    message_content = serializers.CharField(source='message.content', read_only=True)
+
+    class Meta:
+        model = GroupNotification
+        fields = [
+            'id',
+            'notification_type',
+            'is_read',
+            'created_at',
+            'group',
+            'group_name',
+            'message',
+            'message_content',
+            'sender',
+            'sender_name',
+        ]
+
+    def get_sender_name(self, obj):
+        return f"{obj.sender.first_name} {obj.sender.last_name}".strip() or obj.sender.username

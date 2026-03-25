@@ -64,5 +64,9 @@ urlpatterns = [
     path('api/recommendations/', views.get_recommendations, name='get_recommendations'),
     path('api/recommendations/<int:article_id>/feedback/', views.recommendation_feedback, name='recommendation_feedback'),
     path('api/recommendations/debug/', views.get_recommendations_debug, name='get_recommendations_debug'),
+    path('api/groups/<int:group_id>/messages/', views.group_messages, name='group_messages'),
+    path('api/groups/<int:group_id>/messages/<int:message_id>/', views.delete_group_message, name='delete_group_message'),
+    path('api/group-notifications/', views.group_notifications, name='group_notifications'),
+    path('api/group-notifications/<int:notification_id>/', views.delete_group_notification, name='delete_group_notification'),
     
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

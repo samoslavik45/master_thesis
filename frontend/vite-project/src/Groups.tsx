@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Mail } from "lucide-react";
+import { Plus, Mail, Bell } from "lucide-react";
 
 import GroupDetail from "./GroupDetail";
 
@@ -28,6 +28,17 @@ interface Invite {
   group_name: string;
   sender_name: string;
 }
+
+interface GroupNotification {
+  id: number;
+  notification_type: "mention";
+  is_read: boolean;
+  created_at: string;
+  group_name: string;
+  sender_name: string;
+  message_content: string;
+}
+
 
 const Groups = () => {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -51,6 +62,14 @@ const Groups = () => {
   const [invitesResultOpen, setInvitesResultOpen] = useState(false);
   const [invitesResultStatus, setInvitesResultStatus] = useState<"success" | "error" | "info">("info");
   const [invitesResultMessage, setInvitesResultMessage] = useState("");
+
+  /* --- NOTIFICATIONS DIALOG STATE --- */
+  const [notifications, setNotifications] = useState<GroupNotification[]>([]);
+  const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
+  const [notificationsResultOpen, setNotificationsResultOpen] = useState(false);
+  const [notificationsResultStatus, setNotificationsResultStatus] = useState<"success" | "error" | "info">("info");
+  const [notificationsResultMessage, setNotificationsResultMessage] = useState("");
+  const unreadNotificationsCount = notifications.filter((n) => !n.is_read).length;
 
   /* ------------ AUTH CHECK ------------ */
   const redirectToLogin = () => navigate("/login");
@@ -77,7 +96,7 @@ const Groups = () => {
     }
 
     // token je OK → načítame groups + invites
-    Promise.all([fetchGroups(), fetchInvites()])
+    Promise.all([fetchGroups(), fetchInvites(), fetchNotifications()])
       .catch((err) => {
         console.error("Error while loading groups/invites:", err);
         setIsLoggedIn(false);
@@ -131,10 +150,66 @@ const Groups = () => {
     }
   };
 
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch("http://localhost:8000/api/group-notifications/", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error loading notifications:", err);
+    }
+  };
+
+  const handleShowNotifications = () => {
+    setNotificationsDialogOpen(true);
+  };
+
+  const handleDismissNotification = async (id: number) => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      setNotificationsDialogOpen(false);
+      setNotificationsResultStatus("error");
+      setNotificationsResultMessage("You must be logged in to update notifications.");
+      setNotificationsResultOpen(true);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/group-notifications/${id}/`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to delete notification");
+      }
+
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      console.error("Error deleting notification:", err);
+      setNotificationsDialogOpen(false);
+      setNotificationsResultStatus("error");
+      setNotificationsResultMessage("Failed to remove notification. Please try again.");
+      setNotificationsResultOpen(true);
+    }
+  };
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchGroups();
       fetchInvites();
+      fetchNotifications();
     }
   }, [isLoggedIn]);
 
@@ -359,9 +434,9 @@ const handleConfirmCreateGroup = async () => {
             <CardHeader>
               <h2 className="text-xl font-semibold text-foreground">Your Groups</h2>
 
-              <div className="flex gap-3 mt-4">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button
-                  className="rounded-xl flex items-center gap-2"
+                  className="h-10 rounded-xl flex items-center gap-2 px-3 text-sm shrink-0"
                   onClick={handleOpenCreateGroup}
                 >
                   <Plus className="w-4 h-4" />
@@ -371,7 +446,7 @@ const handleConfirmCreateGroup = async () => {
                 <Button
                   variant="outline"
                   className="
-                    rounded-xl flex items-center gap-2 px-3 py-1.5 text-sm
+                    h-10 rounded-xl flex items-center gap-2 px-3 text-sm shrink-0
                     border-[hsl(var(--primary))/55]
                     bg-[hsl(var(--primary))/8]
                     text-[hsl(var(--primary))]
@@ -387,14 +462,44 @@ const handleConfirmCreateGroup = async () => {
                     <span
                       className="
                         inline-flex items-center justify-center
-                        min-w-[1.5rem] px-1
+                        min-w-[1.25rem] h-5 px-1
                         rounded-full
                         bg-[hsl(var(--primary))]
                         text-[hsl(var(--primary-foreground))]
-                        text-[0.7rem] font-semibold
+                        text-[0.68rem] font-semibold
                       "
                     >
                       {invites.length}
+                    </span>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="
+                    h-10 rounded-xl flex items-center gap-2 px-3 text-sm shrink-0
+                    border-[hsl(var(--primary))/55]
+                    bg-[hsl(var(--primary))/8]
+                    text-[hsl(var(--primary))]
+                    hover:bg-[hsl(var(--primary))/14]
+                    transition-colors
+                  "
+                  onClick={handleShowNotifications}
+                >
+                  <Bell className="w-4 h-4" />
+
+                  {unreadNotificationsCount > 0 && (
+                    <span
+                      className="
+                        inline-flex items-center justify-center
+                        min-w-[1.25rem] h-5 px-1
+                        rounded-full
+                        bg-[hsl(var(--primary))]
+                        text-[hsl(var(--primary-foreground))]
+                        text-[0.68rem] font-semibold
+                      "
+                    >
+                      {unreadNotificationsCount}
                     </span>
                   )}
                 </Button>
@@ -637,6 +742,76 @@ const handleConfirmCreateGroup = async () => {
               className="rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-110 px-6"
             >
               OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---------- NOTIFICATIONS LIST DIALOG ---------- */}
+      <Dialog open={notificationsDialogOpen} onOpenChange={setNotificationsDialogOpen}>
+        <DialogContent className="max-w-lg rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">
+              Notifications
+            </DialogTitle>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+              Mentions from group discussions.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2 max-h-[360px] overflow-y-auto pr-1">
+            {notifications.length === 0 ? (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                You currently have no notifications.
+              </p>
+            ) : (
+              notifications.map((notification) => (
+                <Card
+                  key={notification.id}
+                  className="rounded-xl p-4 border-[hsl(var(--primary))/40] bg-[hsl(var(--primary))/8]"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-[hsl(var(--foreground))]">
+                      {notification.sender_name} mentioned you in {notification.group_name}
+                    </span>
+
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2">
+                      {notification.message_content}
+                    </span>
+
+                    <span className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="
+                        rounded-xl px-3 py-1.5 text-xs font-medium
+                        border-[hsl(var(--border))]
+                        bg-[hsl(var(--background))]
+                        text-[hsl(var(--foreground))]
+                        hover:bg-[hsl(var(--muted))]
+                      "
+                      onClick={() => handleDismissNotification(notification.id)}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setNotificationsDialogOpen(false)}
+              className="rounded-xl border-[hsl(var(--border))] bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

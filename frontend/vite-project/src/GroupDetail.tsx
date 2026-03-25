@@ -21,7 +21,11 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
-import { Users, Bookmark, Tag, Trash2, LogOut, Send, FileDown, FileText } from "lucide-react";
+import { Users, Bookmark, Tag, Trash2, LogOut, FileDown, FileText, MessageSquare } from "lucide-react";
+
+import GroupChatModal from "./GroupChatModal";
+import { GroupChatArticleRef } from "./types";
+
 
 
 interface Group {
@@ -93,6 +97,8 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
   const [leaveGroupResultStatus, setLeaveGroupResultStatus] = useState<"success" | "error">("success");
   const [leaveGroupResultMessage, setLeaveGroupResultMessage] = useState("");
   const [leaveGroupShouldRedirect, setLeaveGroupShouldRedirect] = useState(false);
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const [memberToRemove, setMemberToRemove] = useState<{
     id: number;
@@ -546,6 +552,10 @@ const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack, updateGroups
     window.open(`http://localhost:8000${pdfFile}`, "_blank");
   };
 
+  const handleOpenGroupChat = () => {
+    setIsChatOpen(true);
+  };
+
 
 return (
   <>
@@ -798,6 +808,22 @@ return (
         >
           <FileDown className="w-4 h-4" />
           Export BibTeX
+        </Button>
+
+        <Button
+          variant="outline"
+          className="
+            rounded-full flex items-center gap-2
+            border-[hsl(var(--primary))]/40
+            bg-[hsl(var(--primary))]/10
+            text-[hsl(var(--primary))]
+            hover:bg-[hsl(var(--primary))]/15
+            shadow-sm
+          "
+          onClick={handleOpenGroupChat}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Open Group Chat
         </Button>
       </div>
 
@@ -1328,6 +1354,17 @@ return (
     </DialogContent>
   </Dialog> 
   
+  <GroupChatModal
+    isOpen={isChatOpen}
+    onClose={() => setIsChatOpen(false)}
+    groupId={groupId}
+    groupName={group?.name}
+    members={group?.members || []}
+    articles={(articles || []).map((article) => ({
+      id: article.id,
+      title: article.title,
+    }))}
+  />
   </>
 );
 

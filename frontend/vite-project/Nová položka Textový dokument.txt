@@ -1,0 +1,6 @@
+Týchto 5 vecí už len pridať:
+- presunúť reply button pod delete
+- urobiť fixnú veľkosť okna pre správy nech to nepreteká
+- pri doplnaní user alebo article tak nech sa to dá cez enter potrvdirť napríklad, keď to mažem nech sa to zas nezobrazí
+- možnosť zmazať výber mention usera
+- notifikácia označenému userovi, vedľa invites daj button na notifikácie a tam ju vypísať

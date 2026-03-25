@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from urllib3 import request
-from .models import CustomUser, Article, ArticleLike, Group, Author, UserInteraction
+from .models import CustomUser, Article, ArticleLike, Group, Author, GroupNotification, UserInteraction, GroupMessage
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -21,11 +21,19 @@ import os
 from django.contrib.auth import get_user_model
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
-from .serializers import ArticleSerializer
+from .serializers import ArticleSerializer, GroupNotificationSerializer
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import permission_classes
-from .models import Category, Tag, Keyword, GroupArticleLike, GroupInvite, UserArticleTag, ArticleMetadata, ArticleEmbedding
-from .serializers import CategorySerializer, TagSerializer, KeywordSerializer, GroupSerializer, GroupInviteSerializer
+from .models import Category, Tag, Keyword, GroupArticleLike, GroupInvite, UserArticleTag, ArticleMetadata, ArticleEmbedding, RecommendationCache
+from .serializers import (
+    ArticleSerializer,
+    CategorySerializer,
+    TagSerializer,
+    KeywordSerializer,
+    GroupSerializer,
+    GroupInviteSerializer,
+    GroupMessageSerializer,
+)
 import string
 import random
 import fitz  # PyMuPDF
@@ -1262,3 +1270,143 @@ def get_recommendations_debug(request):
 def refresh_recommendations_for_all_models(user, limit=8):
     refresh_user_recommendations(user, model_name='tfidf-v1', limit=limit)
     refresh_user_recommendations(user, model_name='sbert-v1', limit=limit)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def group_messages(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
+
+    if request.user != group.admin and request.user not in group.members.all():
+        return Response(
+            {'detail': 'You are not a member of this group.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if request.method == 'GET':
+        article_id = request.query_params.get('article_id')
+
+        messages = (
+            GroupMessage.objects
+            .filter(group=group)
+            .select_related('user', 'article', 'parent')
+            .prefetch_related('mentioned_users', 'replies')
+            .order_by('created_at')
+        )
+
+        if article_id:
+            messages = messages.filter(article_id=article_id)
+
+        serializer = GroupMessageSerializer(
+            messages,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # POST
+    content = (request.data.get('content') or '').strip()
+    article_id = request.data.get('article_id')
+    parent_id = request.data.get('parent_id')
+    mentioned_user_ids = request.data.get('mentioned_user_ids', [])
+
+    if not content:
+        return Response(
+            {'detail': 'Message content is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    article = None
+    if article_id:
+        article = get_object_or_404(Article, id=article_id)
+        if not GroupArticleLike.objects.filter(group=group, article=article).exists():
+            return Response(
+                {'detail': 'This article is not in the group favourites.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    parent = None
+    if parent_id:
+        parent = get_object_or_404(GroupMessage, id=parent_id, group=group)
+
+    message = GroupMessage.objects.create(
+        group=group,
+        user=request.user,
+        article=article,
+        parent=parent,
+        content=content
+    )
+
+    if mentioned_user_ids:
+        valid_members = User.objects.filter(
+            id__in=mentioned_user_ids
+        ).filter(
+            Q(id=group.admin_id) | Q(custom_groups=group)
+        ).distinct()
+        message.mentioned_users.set(valid_members)
+
+        for mentioned_user in valid_members:
+            if mentioned_user != request.user:
+                GroupNotification.objects.create(
+                    recipient=mentioned_user,
+                    sender=request.user,
+                    group=group,
+                    message=message,
+                    notification_type='mention'
+                )
+
+    serializer = GroupMessageSerializer(
+        message,
+        context={'request': request}
+    )
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_group_message(request, group_id, message_id):
+    group = get_object_or_404(Group, id=group_id)
+
+    if request.user != group.admin and request.user not in group.members.all():
+        return Response(
+            {'detail': 'You are not a member of this group.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    message = get_object_or_404(GroupMessage, id=message_id, group=group)
+
+    if message.user != request.user:
+        return Response(
+            {'detail': 'You can delete only your own messages.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    message.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def group_notifications(request):
+    notifications = (
+        GroupNotification.objects
+        .filter(recipient=request.user)
+        .select_related('sender', 'group', 'message')
+        .order_by('-created_at')
+    )
+
+    serializer = GroupNotificationSerializer(notifications, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_group_notification(request, notification_id):
+    notification = get_object_or_404(
+        GroupNotification,
+        id=notification_id,
+        recipient=request.user
+    )
+
+    notification.delete()
+    return Response({'detail': 'Notification deleted.'}, status=status.HTTP_200_OK)

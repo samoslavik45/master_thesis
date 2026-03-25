@@ -41,3 +41,45 @@ export interface RecommendedArticle extends Article {
   score?: number;
 }
   
+export interface GroupMemberLite {
+  id: number;
+  first_name: string;
+  last_name: string;
+  username: string;
+}
+
+export interface GroupChatArticleRef {
+  id: number;
+  title: string;
+}
+
+export interface GroupMessage {
+  id: number;
+  group: number;
+  user: number;
+  author_name: string;
+  article: number | null;
+  article_title: string | null;
+  parent_id: number | null;
+  parent_preview: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  can_delete: boolean;
+  mentioned_user_ids: number[];
+  mentioned_usernames: string[];
+  replies_count: number;
+}
+
+export interface GroupNotification {
+  id: number;
+  notification_type: "mention";
+  is_read: boolean;
+  created_at: string;
+  group: number;
+  group_name: string;
+  message: number;
+  message_content: string;
+  sender: number;
+  sender_name: string;
+}
