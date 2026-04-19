@@ -1,0 +1,4 @@
+username,model,base_like_count,train_count,test_count,group_like_count,positive_feedback_count,dismiss_feedback_count,top_ids,used_train_vectors,used_group_vectors,used_positive_vectors,used_dismiss_vectors,hits@5,precision@5,recall@5,map@5,ndcg@5,hits@10,precision@10,recall@10,map@10,ndcg@10
+jozefhorvath,tfidf-v1,20,16,4,10,5,4,"560,458,456,385,464,466,463,559,392,437",16,10,5,4,1,0.2,0.25,0.0625,0.16812753627111746,3,0.3,0.75,0.21726190476190477,0.4157703243582452
+martinakovacova,tfidf-v1,20,16,4,10,5,4,"373,337,378,381,565,354,342,355,316,344",16,10,5,4,2,0.4,0.5,0.5,0.6366824387328317,2,0.2,0.5,0.5,0.6366824387328317
+samuelslavik,tfidf-v1,20,16,4,10,5,4,"429,440,439,455,391,457,392,539,454,459",16,10,5,4,3,0.6,0.75,0.75,0.8318724637288826,3,0.3,0.75,0.75,0.8318724637288826

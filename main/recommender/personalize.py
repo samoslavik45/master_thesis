@@ -165,10 +165,10 @@ def build_user_profile_debug(user, model_name="tfidf-v1", limit=8):
                     "source": source_name,
                 })
 
-    add_articles(seed["user_liked_ids"], 2.0, "user_like")
-    add_articles(seed["group_liked_ids"], 0.1, "group_like")
-    add_articles(seed["positive_feedback_ids"], 2.5, "positive_feedback")
-    add_articles(seed["dismiss_feedback_ids"], -2.0, "dismiss_feedback")
+    add_articles(seed["user_liked_ids"], 1.0, "user_like")
+    add_articles(seed["group_liked_ids"], 0.7, "group_like")
+    add_articles(seed["positive_feedback_ids"], 1.2, "positive_feedback")
+    add_articles(seed["dismiss_feedback_ids"], -1.0, "dismiss_feedback")
 
     if not weighted_vectors:
         return {

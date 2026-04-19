@@ -1,0 +1,4 @@
+username,model,base_like_count,train_count,test_count,group_like_count,positive_feedback_count,dismiss_feedback_count,top_ids,used_train_vectors,used_group_vectors,used_positive_vectors,used_dismiss_vectors,hits@5,precision@5,recall@5,map@5,ndcg@5,hits@10,precision@10,recall@10,map@10,ndcg@10
+jozefhorvath,sbert-v1,20,16,4,10,5,4,"451,454,463,455,385,392,457,462,466,559",16,10,5,4,2,0.4,0.5,0.18333333333333335,0.34620964322385606,4,0.4,1.0,0.43333333333333335,0.6084170171049966
+martinakovacova,sbert-v1,20,16,4,10,5,4,"373,565,564,377,316,264,378,357,353,270",16,10,5,4,1,0.2,0.25,0.25,0.3903800499921017,1,0.1,0.25,0.25,0.3903800499921017
+samuelslavik,sbert-v1,20,16,4,10,5,4,"389,429,454,391,450,439,558,567,560,463",16,10,5,4,1,0.2,0.25,0.125,0.24630238874073,2,0.2,0.5,0.20833333333333331,0.3853585682515056

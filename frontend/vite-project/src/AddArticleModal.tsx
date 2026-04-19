@@ -510,6 +510,34 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                     <p className="text-[0.7rem] text-[hsl(var(--muted-foreground))]">
                       Separate multiple authors with a comma.
                     </p>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.author_name &&
+                      formData.author_name
+                        .split(",")
+                        .map((author) => author.trim())
+                        .filter(Boolean).length ? (
+                        formData.author_name
+                          .split(",")
+                          .map((author) => author.trim())
+                          .filter(Boolean)
+                          .map((author, idx) => (
+                            <Badge
+                              key={idx}
+                              className="
+                                rounded-full bg-[hsl(var(--muted))]
+                                text-[hsl(var(--foreground))] text-xs font-medium
+                                px-3 py-1
+                              "
+                            >
+                              {author}
+                            </Badge>
+                          ))
+                      ) : (
+                        <span className="text-[0.75rem] italic text-[hsl(var(--muted-foreground))]">
+                          No authors detected yet.
+                        </span>
+                      )}
+                    </div>
                   </section>
 
                   {/* CATEGORIES */}

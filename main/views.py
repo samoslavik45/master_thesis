@@ -350,77 +350,111 @@ def create_article(request):
 
     pdf_file = request.FILES.get('pdf_file')
     if not pdf_file:
-        return Response({'error': 'No PDF file provided .'}, status=400)
-    
-    file_name, file_extension = os.path.splitext(pdf_file.name)
+        return Response({'error': 'No PDF file provided.'}, status=400)
+
+    _, file_extension = os.path.splitext(pdf_file.name)
     if file_extension.lower() != '.pdf':
-        return Response({'error': 'Invalid file type. Only PDF files are allowed.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-    metadata = doc.metadata
-    print(metadata)
+        return Response(
+            {'error': 'Invalid file type. Only PDF files are allowed.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # použijeme jednotnú extrakciu
+        preview_data = extract_pdf_preview_data(pdf_file)
+
+        # metadata ešte stále chceme kvôli subject/creator/year/doi
+        raw_bytes = pdf_file.read()
+        doc = fitz.open(stream=raw_bytes, filetype="pdf")
+        metadata = doc.metadata or {}
+        pdf_file.seek(0)
+
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to process PDF: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     creation_date = metadata.get('creationDate')
     extracted_year = extract_year_from_creation_date(creation_date) if creation_date else None
 
-
-    existing_articles = Article.objects.all()
-    print(existing_articles)
-    for article in existing_articles:
-        print(article)
-        print("toto je article.pdf_file:", article.pdf_file)
-        print("toto je os.path.basename", os.path.basename(article.pdf_file.name))
-        print("pdf_file.name", pdf_file.name)
-        if article.pdf_file and os.path.basename(article.pdf_file.name) == pdf_file.name:
-            print("som tu")
-            existing_metadata = ArticleMetadata.objects.get(article=article)
-            print(existing_metadata)
-            print("existing_metadata.title:", existing_metadata.title)
-            print("metadata.get('title', ''):", metadata.get('title', ''))
-            print("existing_metadata.author:", existing_metadata.authors)
-            print("metadata.get('author_name', '')", metadata.get('author_name', ''))
-            if existing_metadata and (existing_metadata.title == metadata.get('title', '') or existing_metadata.authors == metadata.get('author', '')):
-                return Response({'error': 'This PDF file already exists in the system.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    title = request.data.get('title', metadata.get('title', ''))
-    authors_names = request.data.getlist('authors')  
-    author = request.data.get('author_name', metadata.get('author', ''))
     subject = metadata.get('subject', None)
     creator = metadata.get('creator', None)
     doi = metadata.get('doi', None)
-    keywords = request.data.get('keywords_text', '')
-    keywords_list = [keyword.strip() for keyword in keywords.split(',') if keyword.strip()]
 
-    serializer = ArticleSerializer(data=request.data, context={'request': request})
+    # hodnoty z requestu majú prioritu, inak fallback na extrakciu
+    title = (request.data.get('title') or preview_data.get('title') or '').strip()
+    abstract = (request.data.get('content') or preview_data.get('abstract') or '').strip()
+
+    authors_names = request.data.getlist('authors')
+    if not authors_names:
+        extracted_author = (preview_data.get('author') or '').strip()
+        if extracted_author:
+            # jednoduchý fallback split
+            authors_names = [a.strip() for a in re.split(r'\s*[;,]\s*', extracted_author) if a.strip()]
+
+    keywords_text = (request.data.get('keywords_text') or '').strip()
+    if keywords_text:
+        keywords_list = split_keywords(keywords_text)
+    else:
+        keywords_list = preview_data.get('keywords', [])
+
+    # jednoduchšia deduplikácia: filename
+    existing_filename = os.path.basename(pdf_file.name).strip().lower()
+    for article in Article.objects.all().only('id', 'pdf_file'):
+        if article.pdf_file and os.path.basename(article.pdf_file.name).strip().lower() == existing_filename:
+            return Response(
+                {'error': 'This PDF file already exists in the system.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # pripravíme mutable dáta pre serializer
+    serializer_data = {
+        'title': title,
+        'content': abstract,
+        'categories': request.data.getlist('categories'),
+        'authors': authors_names,
+        'pdf_file': pdf_file,
+    }
+
+    serializer = ArticleSerializer(data=serializer_data, context={'request': request})
+
     if serializer.is_valid():
         with transaction.atomic():
             article = serializer.save(added_by=request.user)
+
             metadata_instance = ArticleMetadata.objects.create(
                 article=article,
                 title=title,
                 subject=subject,
                 creator=creator,
                 creationDate=extracted_year,
-                keywords=keywords_list,
+                keywords=", ".join(keywords_list),
                 doi=doi
             )
+
             for name in authors_names:
-                author, created = Author.objects.get_or_create(name=name)
-                article.authors.add(author)
-                metadata_instance.authors.add(author)  
+                clean_name = name.strip()
+                if not clean_name:
+                    continue
+                author_obj, _ = Author.objects.get_or_create(name=clean_name)
+                article.authors.add(author_obj)
+                metadata_instance.authors.add(author_obj)
 
             for keyword_str in keywords_list:
                 keyword_clean = keyword_str.lower().strip()
-                keyword_obj, created = Keyword.objects.get_or_create(keyword=keyword_clean)
+                if not keyword_clean:
+                    continue
+                keyword_obj, _ = Keyword.objects.get_or_create(keyword=keyword_clean)
                 article.keywords.add(keyword_obj)
-            
+
             update_single_article_sbert_embedding(article)
             refresh_recommendations_for_all_models(request.user, limit=8)
-            
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-    else:
-        print(serializer.errors) 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    print(serializer.errors)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -448,68 +482,230 @@ from django.http import JsonResponse
 import fitz  # PyMuPDF
 import re
 
+
+
+
+import re
+import fitz
+from django.http import JsonResponse
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
+
+
+def normalize_pdf_text(text: str) -> str:
+    if not text:
+        return ""
+
+    # spojí rozdelené slová: frame-\nwork -> framework
+    text = re.sub(r'(\w)-\n(\w)', r'\1\2', text)
+
+    # newline normalizácia
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+    # trim riadkov
+    text = "\n".join(line.strip() for line in text.split("\n"))
+
+    # viac medzier -> jedna
+    text = re.sub(r'[ \t]+', ' ', text)
+
+    # viac prázdnych riadkov -> max dva
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
+
+
+def extract_first_pages_text(doc: fitz.Document, max_pages: int = 2) -> str:
+    chunks = []
+    pages = min(len(doc), max_pages)
+
+    for i in range(pages):
+        try:
+            page_text = doc[i].get_text()
+            if page_text:
+                chunks.append(page_text)
+        except Exception:
+            continue
+
+    return normalize_pdf_text("\n\n".join(chunks))
+
+
+def clean_abstract_text(text: str) -> str:
+    if not text:
+        return ""
+
+    text = text.strip(" :-\n\t")
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # príliš krátky výsledok nechceme
+    if len(text.split()) < 20:
+        return ""
+
+    return text
+
+
+def extract_abstract_from_text(text: str) -> str:
+    if not text:
+        return ""
+
+    patterns = [
+        r'(?is)\babstract\b\s*[:.\-]?\s*(.*?)\s*(?=\b(?:1\.?\s*introduction|introduction|background|methods?|materials and methods|results|discussion|conclusion|conclusions|keywords?)\b)',
+        r'(?is)\babstract\b\s*[:.\-]?\s*(.*?)(?:\n\s*\n)',
+        r'(?is)\babstract\b\s*[:.\-]?\s*([^\n]+(?:\n(?!\s*(?:1\.?\s*introduction|introduction|keywords?)\b)[^\n]+){0,10})',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            abstract = clean_abstract_text(match.group(1))
+            if abstract:
+                return abstract
+
+    # fallback: ak je samostatný riadok "Abstract", vezmi blok pod ním
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+
+    for i, line in enumerate(lines):
+        if re.fullmatch(r'abstract[:.\-]?', line, re.IGNORECASE):
+            candidate_lines = []
+            for next_line in lines[i + 1:i + 12]:
+                if re.match(r'^(keywords?|1\.?\s*introduction|introduction)$', next_line, re.IGNORECASE):
+                    break
+                candidate_lines.append(next_line)
+
+            candidate = clean_abstract_text(" ".join(candidate_lines))
+            if candidate:
+                return candidate
+
+    return ""
+
+
+def split_keywords(raw_keywords: str) -> list[str]:
+    if not raw_keywords:
+        return []
+
+    parts = re.split(r'[;,·•]', raw_keywords)
+    cleaned = []
+
+    for part in parts:
+        kw = re.sub(r'\s+', ' ', part).strip(" .:-\n\t")
+        if kw and len(kw) > 1:
+            cleaned.append(kw)
+
+    # deduplikácia pri zachovaní poradia
+    seen = set()
+    result = []
+    for kw in cleaned:
+        lowered = kw.lower()
+        if lowered not in seen:
+            seen.add(lowered)
+            result.append(kw)
+
+    return result
+
+
+def extract_keywords_from_text(text: str) -> list[str]:
+    if not text:
+        return []
+
+    patterns = [
+        r'(?is)\bkeywords?\b\s*[:.\-]?\s*(.*?)\s*(?=\b(?:1\.?\s*introduction|introduction|background|methods?|results|discussion|references)\b)',
+        r'(?is)\bkeywords?\b\s*[:.\-]?\s*([^\n]+)',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            keywords = split_keywords(match.group(1))
+            if keywords:
+                return keywords
+
+    return []
+
+
+def extract_title_from_first_page(doc: fitz.Document) -> str:
+    try:
+        if len(doc) == 0:
+            return ""
+
+        page = doc[0]
+        blocks = page.get_text("dict").get("blocks", [])
+        candidates = []
+
+        for block in blocks:
+            for line in block.get("lines", []):
+                line_text = ""
+                max_size = 0
+
+                for span in line.get("spans", []):
+                    txt = span.get("text", "").strip()
+                    if txt:
+                        line_text += txt + " "
+                        max_size = max(max_size, span.get("size", 0))
+
+                line_text = line_text.strip()
+                if line_text and len(line_text) > 10:
+                    candidates.append((max_size, line_text))
+
+        if not candidates:
+            return ""
+
+        candidates.sort(reverse=True, key=lambda x: x[0])
+        return candidates[0][1].strip()
+
+    except Exception:
+        return ""
+
+
+def extract_pdf_preview_data(pdf_file) -> dict:
+    raw_bytes = pdf_file.read()
+    doc = fitz.open(stream=raw_bytes, filetype="pdf")
+    metadata = doc.metadata or {}
+
+    first_pages_text = extract_first_pages_text(doc, max_pages=2)
+
+    metadata_title = (metadata.get("title") or "").strip()
+    metadata_author = (metadata.get("author") or "").strip()
+    metadata_keywords = (metadata.get("keywords") or "").strip()
+
+    title = metadata_title if metadata_title and metadata_title.lower() not in {
+        "untitled",
+        "microsoft word",
+        "default",
+    } else extract_title_from_first_page(doc)
+
+    abstract = extract_abstract_from_text(first_pages_text)
+
+    keywords = split_keywords(metadata_keywords)
+    if not keywords:
+        keywords = extract_keywords_from_text(first_pages_text)
+
+    pdf_file.seek(0)
+
+    clean_author = re.sub(r'\s*;\s*', ', ', metadata_author or '').strip()
+
+    return {
+        "title": title or "",
+        "author": clean_author,
+        "abstract": abstract or "",
+        "keywords": keywords or [],
+    }
+
+
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def extract_keywords_from_pdf(request):
     if 'pdf_file' not in request.FILES:
         return JsonResponse({'error': 'No PDF file provided.'}, status=400)
-    
+
     pdf_file = request.FILES['pdf_file']
-    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-    metadata = doc.metadata
-    print(metadata)
-    title = metadata.get('title', '')
-    author = metadata.get('author', '')
-    metadata_keywords = doc.metadata.get('keywords', '')
 
-    if len(doc) > 0:  
-        first_page_text = doc[0].get_text()  
-        print("First page text:", first_page_text)
-
-    full_text = ""
-    for page in doc:
-        full_text += page.get_text()
-
-    abstract_patterns = [
-        r"(?si)\babstract\b\s*(.*?)(?:\n\s*(?:\d+\.\s*)?(?:Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)|\n{2,})",
-        r"(?si)\babstract\b\s*([^\n]+(?:\n(?!\n)[^\n]+)*)" 
-        #r"(?si)\babstract\b\s*(.*?)(?:\n\s*\b(?:Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)\b|$)",
-        #r"(?si)\babstract\b\s*(.*?)(?=\n\s*\b(?:1\.|2\.|3\.|Introduction|Background|Methods|Results|Discussion|Conclusions|Keywords)\b)"
-    ]
-
-
-    abstract = ""
-    for pattern in abstract_patterns:
-        abstract_match = re.search(pattern, full_text, re.DOTALL)
-        if abstract_match:
-            abstract = abstract_match.group(1).strip()
-            break
-
-    if metadata_keywords:
-        keywords_list = [keyword.strip() for keyword in metadata_keywords.split(',') if keyword.strip()]
-        return JsonResponse({'title': title, 'author': author, 'abstract': abstract, 'keywords': keywords_list})
-
-    full_text = ""
-    for page in doc:
-        full_text += page.get_text()
-
-    regex_patterns = [
-        r"Keywords\s*:\s*([\s\S]*?)(?:\.|References)",
-        r"Keywords\s(.*)",
-        r"(?<=\n)([a-zA-Z\s,]+)(?=\nKEYWORDS)"
-    ]
-
-    matches = []
-    for pattern in regex_patterns:
-        match = re.findall(pattern, full_text, re.IGNORECASE)
-        if match:
-            matches.extend(match)
-
-    cleaned_matches = []
-    for match in matches:
-        keywords = [keyword.strip() for keyword in match.split(',') if keyword.strip()]
-        cleaned_matches.extend(keywords)
-    return JsonResponse({'title': title, 'author': author, 'abstract': abstract, 'keywords': cleaned_matches if cleaned_matches else []})
+    try:
+        data = extract_pdf_preview_data(pdf_file)
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse(
+            {'error': f'Failed to extract data from PDF: {str(e)}'},
+            status=400
+        )
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
