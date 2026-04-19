@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 
 class CustomUser(AbstractUser):
     groups = models.ManyToManyField(
@@ -36,15 +38,23 @@ class Keyword(models.Model):
 class Article(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
+    full_text = models.TextField(blank=True, default="")   # ⬅️ nové
+    search_vector = SearchVectorField(null=True, blank=True)  # ⬅️ nové
+
     pdf_file = models.FileField(upload_to='articles_pdfs/')
     created_at = models.DateTimeField(auto_now_add=True)
     added_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='articles')
-    authors = models.ManyToManyField('Author', related_name='authored_articles')  # Odkaz na model Author
+    authors = models.ManyToManyField('Author', related_name='authored_articles')
     categories = models.ManyToManyField('Category', related_name='articles')
     keywords = models.ManyToManyField(Keyword, related_name='articles')
 
     def __str__(self):
         return self.title
+
+    class Meta:
+        indexes = [
+            GinIndex(fields=['search_vector'], name='article_search_vector_gin'),
+        ]
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)

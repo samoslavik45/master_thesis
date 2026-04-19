@@ -5,12 +5,14 @@ import { Article, Category } from "./types";
 import { LoginContext } from "./App";
 
 const MainContent: React.FC = () => {
-  const { isLoggedIn } = useContext(LoginContext);
+  const { isLoggedIn, selectedFullTextMode } = useContext(LoginContext);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [articles, setArticles] = useState<Article[]>([]);
   const [groups, setGroups] = useState<Array<{ id: number; name: string }>>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [useFullTextSearch, setUseFullTextSearch] = useState(false);
+  
 
   // CATEGORIES – načítaj raz
   useEffect(() => {
@@ -54,18 +56,30 @@ const MainContent: React.FC = () => {
     fetchUserGroups();
   }, [isLoggedIn]);
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (
+    query: string,
+    useFullText: boolean = useFullTextSearch
+  ) => {
     setSearchQuery(query);
+    setUseFullTextSearch(useFullText);
+
     try {
       const token = localStorage.getItem("accessToken");
       const headers: HeadersInit = token
         ? { Authorization: `Bearer ${token}` }
         : {};
 
+      const params = new URLSearchParams({
+        q: query,
+      });
+
+      if (useFullText) {
+        params.append("fulltext", "true");
+        params.append("fulltext_mode", selectedFullTextMode);
+      }
+
       const res = await fetch(
-        `http://localhost:8000/main/search_articles/?q=${encodeURIComponent(
-          query
-        )}`,
+        `http://localhost:8000/main/search_articles/?${params.toString()}`,
         { headers }
       );
 
@@ -80,15 +94,14 @@ const MainContent: React.FC = () => {
   };
 
   const handleSelectCategory = async (category: Category | null) => {
-    if (!category) {
-      // zrušený filter kategórie – môžeš napr. znovu spustiť posledný search
-      if (searchQuery) {
-        handleSearch(searchQuery);
-      } else {
-        setArticles([]);
+      if (!category) {
+        if (searchQuery) {
+          handleSearch(searchQuery, useFullTextSearch);
+        } else {
+          setArticles([]);
+        }
+        return;
       }
-      return;
-    }
 
     try {
       const res = await fetch(
@@ -123,6 +136,8 @@ const MainContent: React.FC = () => {
           onSearch={handleSearch}
           onCategorySelect={handleSelectCategory}
           categories={categories}
+          fullTextEnabled={useFullTextSearch}
+          onFullTextChange={setUseFullTextSearch}
         />
       </div>
 

@@ -18,13 +18,14 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+import { FullTextMode } from "./types";
+
 interface CurrentUser {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
 }
-
 interface LoginContextType {
   isLoggedIn: boolean;
   setIsLoggedIn: (v: boolean) => void;
@@ -32,6 +33,9 @@ interface LoginContextType {
   user: CurrentUser | null;
   selectedRecoModel: "tfidf-v1" | "sbert-v1";
   setSelectedRecoModel: (v: "tfidf-v1" | "sbert-v1") => void;
+
+  selectedFullTextMode: FullTextMode;
+  setSelectedFullTextMode: (v: FullTextMode) => void;
 }
 
 export const LoginContext = createContext<LoginContextType>({
@@ -41,6 +45,9 @@ export const LoginContext = createContext<LoginContextType>({
   user: null,
   selectedRecoModel: "tfidf-v1",
   setSelectedRecoModel: () => {},
+
+  selectedFullTextMode: "phrase",
+  setSelectedFullTextMode: () => {},
 });
 
 function App() {
@@ -50,6 +57,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const [selectedRecoModel, setSelectedRecoModel] = useState<"tfidf-v1" | "sbert-v1">("tfidf-v1");
+  const [selectedFullTextMode, setSelectedFullTextMode] = useState<FullTextMode>("phrase");
 
   const location = useLocation();
 
@@ -108,6 +116,8 @@ function App() {
         user: currentUser,
         selectedRecoModel,
         setSelectedRecoModel,
+        selectedFullTextMode,
+        setSelectedFullTextMode,
       }}
     >
       <Toaster
@@ -272,79 +282,139 @@ function App() {
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
-                    </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="
-                          mt-2 rounded-lg 
-                          border border-[hsl(var(--border))]
-                          bg-[hsl(var(--card))]
-                          shadow-xl
-                          min-w-[220px]
-                          py-1.5
-                        "
-                      >
+                      </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="
+                            mt-2 rounded-lg
+                            border border-[hsl(var(--border))]
+                            bg-[hsl(var(--card))]
+                            shadow-xl
+                            w-[360px] max-w-[90vw]
+                            py-1.5
+                          "
+                        >
                         <div className="px-3 py-2">
                           <p className="text-[0.62rem] uppercase tracking-[0.13em] text-[hsl(var(--muted-foreground))]">
                             Recommendation model
                           </p>
 
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <span
-                              className={`text-[11px] font-semibold transition-colors ${
-                                selectedRecoModel === "tfidf-v1"
-                                  ? "text-[hsl(var(--primary))]"
-                                  : "text-[hsl(var(--muted-foreground))]"
-                              }`}
+                          <div className="mt-2 space-y-2">
+                            <button
+                              onClick={() => setSelectedRecoModel("tfidf-v1")}
+                              className={`
+                                w-full rounded-lg border px-3 py-2 text-left transition
+                                ${
+                                  selectedRecoModel === "tfidf-v1"
+                                    ? "border-[hsl(var(--primary))/0.3] bg-[hsl(var(--primary))/0.08]"
+                                    : "border-[hsl(var(--border))] bg-[hsl(var(--muted))]"
+                                }
+                              `}
                             >
-                              TF-IDF
-                            </span>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-[hsl(var(--foreground))]">
+                                  TF-IDF
+                                </span>
+                                {selectedRecoModel === "tfidf-v1" && (
+                                  <span className="text-[10px] font-semibold text-[hsl(var(--primary))]">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                                Statistical recommendation model based on term weighting.
+                              </p>
+                            </button>
 
-                            <Switch
-                              checked={selectedRecoModel === "sbert-v1"}
-                              onCheckedChange={(checked) =>
-                                setSelectedRecoModel(checked ? "sbert-v1" : "tfidf-v1")
-                              }
-                            />
-
-                            <span
-                              className={`text-[11px] font-semibold transition-colors ${
-                                selectedRecoModel === "sbert-v1"
-                                  ? "text-[hsl(var(--primary))]"
-                                  : "text-[hsl(var(--muted-foreground))]"
-                              }`}
+                            <button
+                              onClick={() => setSelectedRecoModel("sbert-v1")}
+                              className={`
+                                w-full rounded-lg border px-3 py-2 text-left transition
+                                ${
+                                  selectedRecoModel === "sbert-v1"
+                                    ? "border-[hsl(var(--primary))/0.3] bg-[hsl(var(--primary))/0.08]"
+                                    : "border-[hsl(var(--border))] bg-[hsl(var(--muted))]"
+                                }
+                              `}
                             >
-                              SBERT
-                            </span>
-                          </div>
-
-                          <div className="mt-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-2.5 py-2">
-                            <p className="text-[9px] uppercase tracking-[0.1em] text-[hsl(var(--muted-foreground))]">
-                              Current model
-                            </p>
-
-                            <div className="mt-1 flex items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-[hsl(var(--foreground))]">
-                                {selectedRecoModel === "sbert-v1" ? "SBERT" : "TF-IDF"}
-                              </span>
-
-                              <span
-                                className={`
-                                  inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold
-                                  ${
-                                    selectedRecoModel === "sbert-v1"
-                                      ? "bg-[hsl(var(--primary))/0.14] text-[hsl(var(--primary))] border border-[hsl(var(--primary))/0.25]"
-                                      : "bg-[hsl(var(--accent))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))]"
-                                  }
-                                `}
-                              >
-                                Active
-                              </span>
-                            </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-[hsl(var(--foreground))]">
+                                  SBERT
+                                </span>
+                                {selectedRecoModel === "sbert-v1" && (
+                                  <span className="text-[10px] font-semibold text-[hsl(var(--primary))]">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                                Embedding-based recommendation model with semantic understanding.
+                              </p>
+                            </button>
                           </div>
                         </div>
 
                         <div className="my-1 h-px bg-[hsl(var(--border))]" />
+
+                        <div className="px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
+                          Search mode
+                        </p>
+
+                        <div className="mt-2 space-y-2">
+                          <button
+                            onClick={() => setSelectedFullTextMode("phrase")}
+                            className={`
+                              w-full rounded-lg border px-3 py-2 text-left transition
+                              ${
+                                selectedFullTextMode === "phrase"
+                                  ? "border-[hsl(var(--primary))/0.3] bg-[hsl(var(--primary))/0.08]"
+                                  : "border-[hsl(var(--border))] bg-[hsl(var(--muted))]"
+                              }
+                            `}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-[hsl(var(--foreground))]">
+                                Full-text phrase
+                              </span>
+                              {selectedFullTextMode === "phrase" && (
+                                <span className="text-[10px] font-semibold text-[hsl(var(--primary))]">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                              Exact phrase search inside article text.
+                            </p>
+                          </button>
+
+                          <button
+                            onClick={() => setSelectedFullTextMode("intelligent")}
+                            className={`
+                              w-full rounded-lg border px-3 py-2 text-left transition
+                              ${
+                                selectedFullTextMode === "intelligent"
+                                  ? "border-[hsl(var(--primary))/0.3] bg-[hsl(var(--primary))/0.08]"
+                                  : "border-[hsl(var(--border))] bg-[hsl(var(--muted))]"
+                              }
+                            `}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-[hsl(var(--foreground))]">
+                                Intelligent search
+                              </span>
+                              {selectedFullTextMode === "intelligent" && (
+                                <span className="text-[10px] font-semibold text-[hsl(var(--primary))]">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                              Indexed PostgreSQL full-text search with relevance ranking.
+                            </p>
+                          </button>
+                        </div>
+                      </div>
 
                         <DropdownMenuItem
                           onClick={handleLogout}

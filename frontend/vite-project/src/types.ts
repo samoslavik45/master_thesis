@@ -10,6 +10,7 @@ export interface Article {
     added_by_id: number;
     created_at: string;
     tag: string;
+    search_rank?: number;
   }
 
   export interface Category {
@@ -70,6 +71,8 @@ export interface GroupMessage {
   mentioned_usernames: string[];
   replies_count: number;
 }
+
+export type FullTextMode = "phrase" | "intelligent";
 
 export interface GroupNotification {
   id: number;

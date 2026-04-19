@@ -28,15 +28,19 @@ import { ChevronsUpDown, Info, Check } from "lucide-react";
 import { Category } from "./types"; // 🔥 používaš jeden spoločný typ
 
 interface SearchPanelProps {
-  onSearch: (query: string) => void;
+  onSearch: (query: string, useFullText: boolean) => void;
   onCategorySelect: (category: Category | null) => void;
-  categories: Category[]; // 🔥 kategórie idú zvonka
+  categories: Category[];
+  fullTextEnabled: boolean;
+  onFullTextChange: (value: boolean) => void;
 }
 
 const SearchPanel: React.FC<SearchPanelProps> = ({
   onSearch,
   onCategorySelect,
   categories,
+  fullTextEnabled,
+  onFullTextChange,
 }) => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -48,7 +52,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSearch(query);
+    onSearch(query, fullTextEnabled);
   };
 
   const onCategoryPick = (cat: Category) => {
@@ -229,6 +233,32 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               Categories help you focus on a specific scientific field. You can
               change them at any time.
             </p>
+          </div>
+
+          <div
+            className="
+              flex items-start gap-3
+              rounded-2xl border border-[hsl(var(--border))]
+              bg-[hsl(var(--card))]
+              px-4 py-3 shadow-sm
+            "
+          >
+            <input
+              id="fulltext-search"
+              type="checkbox"
+              checked={fullTextEnabled}
+              onChange={(e) => onFullTextChange(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[hsl(var(--border))] accent-[hsl(var(--primary))]"
+            />
+
+            <label htmlFor="fulltext-search" className="cursor-pointer">
+              <p className="text-sm font-medium text-[hsl(var(--foreground))]">
+                Full-text search
+              </p>
+              <p className="text-[0.72rem] text-[hsl(var(--muted-foreground))]">
+                Search inside the article PDF body, title and abstract.
+              </p>
+            </label>
           </div>
         </div>
       </div>

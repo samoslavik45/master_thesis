@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, F
 from django.conf import settings
 import os
 from django.contrib.auth import get_user_model
@@ -50,6 +50,7 @@ from .models import RecommendationCache
 from main.recommender.personalize import refresh_user_recommendations
 from main.recommender.personalize import build_user_profile_debug
 from main.recommender.index import update_single_article_sbert_embedding
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 
 
 User = get_user_model()
@@ -100,77 +101,105 @@ from django.db.models import Q
 @api_view(['GET'])
 def search_articles(request):
     query = request.query_params.get('q', '').strip()
+    use_fulltext = request.query_params.get('fulltext', 'false').lower() in {'1', 'true', 'yes', 'on'}
+    fulltext_mode = request.query_params.get('fulltext_mode', 'phrase').strip().lower()
 
-    # Search conditions
-    base_query = (
-        Q(title__icontains=query) |
-        Q(authors__name__icontains=query) |
-        Q(keywords__keyword__icontains=query) |
-        Q(userarticletag__tag__name__icontains=query, userarticletag__is_public=True)
-    )
+    if not query:
+        return Response({"articles": []})
 
-    if request.user.is_authenticated:
-        private_tags_query = Q(
-            userarticletag__tag__name__icontains=query,
-            userarticletag__user=request.user,
-            userarticletag__is_public=False
-        )
-        articles_qs = Article.objects.filter(base_query | private_tags_query)
-    else:
-        articles_qs = Article.objects.filter(base_query)
-
-    # Prefetch relations
-    articles = (
-        articles_qs
-        .distinct()
-        .prefetch_related("categories", "keywords", "authors")
-    )
-
-    # preload category objects for speed
     categories_map = {
         c.id: {"id": c.id, "name": c.name, "description": c.description}
         for c in Category.objects.all()
     }
 
+    # 1. FULLTEXT REŽIMY
+    if use_fulltext:
+        if fulltext_mode == "intelligent":
+            search_query = SearchQuery(query, search_type='websearch', config='english')
+
+            articles = (
+                Article.objects
+                .filter(search_vector=search_query)
+                .annotate(rank=SearchRank(F("search_vector"), search_query, cover_density=True))
+                .order_by('-rank', '-created_at')
+                .distinct()
+                .prefetch_related("categories", "keywords", "authors")
+            )
+        else:
+            # default = phrase režim
+            articles = (
+                Article.objects
+                .filter(
+                    Q(full_text__icontains=query) |
+                    Q(title__icontains=query) |
+                    Q(content__icontains=query)
+                )
+                .distinct()
+                .prefetch_related("categories", "keywords", "authors")
+                .order_by('-created_at')
+            )
+
+    # 2. BASIC SEARCH – nechaj pôvodné správanie
+    else:
+        base_query = (
+            Q(title__icontains=query) |
+            Q(authors__name__icontains=query) |
+            Q(keywords__keyword__icontains=query) |
+            Q(userarticletag__tag__name__icontains=query, userarticletag__is_public=True)
+        )
+
+        if request.user.is_authenticated:
+            private_tags_query = Q(
+                userarticletag__tag__name__icontains=query,
+                userarticletag__user=request.user,
+                userarticletag__is_public=False
+            )
+            articles = (
+                Article.objects
+                .filter(base_query | private_tags_query)
+                .distinct()
+                .prefetch_related("categories", "keywords", "authors")
+            )
+        else:
+            articles = (
+                Article.objects
+                .filter(base_query)
+                .distinct()
+                .prefetch_related("categories", "keywords", "authors")
+            )
+
     results = []
     for article in articles:
-
-        # FIX: extract safe file path
         file_path = article.pdf_file.name if article.pdf_file else ""
 
-        # remove leading "media/" to match your frontend expectations
         if file_path.startswith("media/"):
             file_path = file_path.replace("media/", "", 1)
 
-        results.append({
+        item = {
             "id": article.id,
             "title": article.title,
             "content": article.content,
             "pdf_file": file_path,
             "created_at": article.created_at,
-
-            # authors (strings)
             "authors": list(article.authors.values_list("name", flat=True)),
-
-            # keywords (strings)
             "keywords": [kw.keyword for kw in article.keywords.all()],
-
-            # tags
             "tags": list(
                 Tag.objects.filter(userarticletag__article=article)
                 .values_list("name", flat=True)
             ),
-
-            # categories (OBJECTS!)
             "categories": [
                 categories_map[c.id]
                 for c in article.categories.all()
                 if c.id in categories_map
             ],
-        })
+        }
+
+        if use_fulltext and fulltext_mode == "intelligent":
+            item["search_rank"] = getattr(article, "rank", None)
+
+        results.append(item)
 
     return Response({"articles": results})
-
 
 
 @api_view(['GET'])
@@ -360,13 +389,18 @@ def create_article(request):
         )
 
     try:
-        # použijeme jednotnú extrakciu
+        # 1. preview dáta z prvých strán / metadata
         preview_data = extract_pdf_preview_data(pdf_file)
 
-        # metadata ešte stále chceme kvôli subject/creator/year/doi
+        # 2. celý text PDF pre fulltext search
+        full_text = extract_full_text_from_pdf(pdf_file)
+
+        # 3. metadata ešte stále chceme kvôli subject / creator / year / doi
         raw_bytes = pdf_file.read()
         doc = fitz.open(stream=raw_bytes, filetype="pdf")
         metadata = doc.metadata or {}
+
+        # vrátime pointer na začiatok, aby sa súbor dal uložiť serializerom
         pdf_file.seek(0)
 
     except Exception as e:
@@ -390,8 +424,11 @@ def create_article(request):
     if not authors_names:
         extracted_author = (preview_data.get('author') or '').strip()
         if extracted_author:
-            # jednoduchý fallback split
-            authors_names = [a.strip() for a in re.split(r'\s*[;,]\s*', extracted_author) if a.strip()]
+            authors_names = [
+                a.strip()
+                for a in re.split(r'\s*[;,]\s*', extracted_author)
+                if a.strip()
+            ]
 
     keywords_text = (request.data.get('keywords_text') or '').strip()
     if keywords_text:
@@ -399,7 +436,7 @@ def create_article(request):
     else:
         keywords_list = preview_data.get('keywords', [])
 
-    # jednoduchšia deduplikácia: filename
+    # jednoduchá deduplikácia podľa názvu PDF súboru
     existing_filename = os.path.basename(pdf_file.name).strip().lower()
     for article in Article.objects.all().only('id', 'pdf_file'):
         if article.pdf_file and os.path.basename(article.pdf_file.name).strip().lower() == existing_filename:
@@ -408,7 +445,7 @@ def create_article(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    # pripravíme mutable dáta pre serializer
+    # dáta pre serializer
     serializer_data = {
         'title': title,
         'content': abstract,
@@ -421,8 +458,13 @@ def create_article(request):
 
     if serializer.is_valid():
         with transaction.atomic():
-            article = serializer.save(added_by=request.user)
+            # uloženie článku vrátane full_text
+            article = serializer.save(
+                added_by=request.user,
+                full_text=full_text,
+            )
 
+            # metadata
             metadata_instance = ArticleMetadata.objects.create(
                 article=article,
                 title=title,
@@ -433,21 +475,29 @@ def create_article(request):
                 doi=doi
             )
 
+            # autori
             for name in authors_names:
                 clean_name = name.strip()
                 if not clean_name:
                     continue
+
                 author_obj, _ = Author.objects.get_or_create(name=clean_name)
                 article.authors.add(author_obj)
                 metadata_instance.authors.add(author_obj)
 
+            # keywords
             for keyword_str in keywords_list:
                 keyword_clean = keyword_str.lower().strip()
                 if not keyword_clean:
                     continue
+
                 keyword_obj, _ = Keyword.objects.get_or_create(keyword=keyword_clean)
                 article.keywords.add(keyword_obj)
 
+            # naplnenie PostgreSQL fulltext search vectora
+            update_article_search_vector(article.id)
+
+            # odporúčania
             update_single_article_sbert_embedding(article)
             refresh_recommendations_for_all_models(request.user, limit=8)
 
@@ -496,6 +546,12 @@ def normalize_pdf_text(text: str) -> str:
     if not text:
         return ""
 
+    # odstráň NUL a väčšinu riadiacich znakov okrem \n a \t
+    text = "".join(
+        ch for ch in text
+        if ch == "\n" or ch == "\t" or ord(ch) >= 32
+    )
+
     # spojí rozdelené slová: frame-\nwork -> framework
     text = re.sub(r'(\w)-\n(\w)', r'\1\2', text)
 
@@ -528,6 +584,56 @@ def extract_first_pages_text(doc: fitz.Document, max_pages: int = 2) -> str:
 
     return normalize_pdf_text("\n\n".join(chunks))
 
+def trim_reference_section(text: str) -> str:
+    if not text:
+        return ""
+
+    patterns = [
+        r'(?is)\nreferences\s*\n.*$',
+        r'(?is)\nbibliography\s*\n.*$',
+        r'(?is)\nliterature cited\s*\n.*$',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            candidate = text[:match.start()].strip()
+
+            # neorež text, ak by sme odrezali príliš skoro
+            if len(candidate.split()) >= 200:
+                return candidate
+
+    return text
+
+
+def extract_full_text_from_pdf(pdf_file) -> str:
+    raw_bytes = pdf_file.read()
+    doc = fitz.open(stream=raw_bytes, filetype="pdf")
+
+    chunks = []
+    for page in doc:
+        try:
+            page_text = page.get_text()
+            if page_text:
+                chunks.append(page_text)
+        except Exception:
+            continue
+
+    pdf_file.seek(0)
+
+    full_text = normalize_pdf_text("\n\n".join(chunks))
+    full_text = trim_reference_section(full_text)
+    return full_text
+
+
+def update_article_search_vector(article_id: int) -> None:
+    Article.objects.filter(pk=article_id).update(
+        search_vector=(
+            SearchVector("title", weight="A", config="english") +
+            SearchVector("content", weight="A", config="english") +
+            SearchVector("full_text", weight="B", config="english")
+        )
+    )
 
 def clean_abstract_text(text: str) -> str:
     if not text:
@@ -1143,6 +1249,7 @@ def update_article(request, article_id):
 
     metadata.save()
 
+    update_article_search_vector(updated_article.id)
     update_single_article_sbert_embedding(updated_article)
     refresh_recommendations_for_all_models(request.user, limit=8)
 
