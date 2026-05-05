@@ -48,7 +48,6 @@ const Groups = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(true);
 
-  /* --- NEW GROUP DIALOG STATE --- */
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [createGroupError, setCreateGroupError] = useState<string | null>(null);
@@ -57,13 +56,11 @@ const Groups = () => {
   const [groupResultStatus, setGroupResultStatus] = useState<"success" | "error">("success");
   const [groupResultMessage, setGroupResultMessage] = useState("");
 
-  /* --- INVITES DIALOG STATE --- */
   const [invitesDialogOpen, setInvitesDialogOpen] = useState(false);
   const [invitesResultOpen, setInvitesResultOpen] = useState(false);
   const [invitesResultStatus, setInvitesResultStatus] = useState<"success" | "error" | "info">("info");
   const [invitesResultMessage, setInvitesResultMessage] = useState("");
 
-  /* --- NOTIFICATIONS DIALOG STATE --- */
   const [notifications, setNotifications] = useState<GroupNotification[]>([]);
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
   const [notificationsResultOpen, setNotificationsResultOpen] = useState(false);
@@ -71,7 +68,6 @@ const Groups = () => {
   const [notificationsResultMessage, setNotificationsResultMessage] = useState("");
   const unreadNotificationsCount = notifications.filter((n) => !n.is_read).length;
 
-  /* ------------ AUTH CHECK ------------ */
   const redirectToLogin = () => navigate("/login");
 
   const checkTokenValidity = () => {
@@ -90,12 +86,10 @@ const Groups = () => {
     setIsLoggedIn(valid);
 
     if (!valid) {
-      // nie je prihlásený → končíme loading, ukážeme login card
       setLoading(false);
       return;
     }
 
-    // token je OK → načítame groups + invites
     Promise.all([fetchGroups(), fetchInvites(), fetchNotifications()])
       .catch((err) => {
         console.error("Error while loading groups/invites:", err);
@@ -117,7 +111,6 @@ const Groups = () => {
     return () => clearInterval(interval);
   }, []);
 
-  /* ------------ LOAD GROUPS + INVITES ------------ */
   const fetchGroups = async () => {
     const token = localStorage.getItem("accessToken");
     if (!token) return;
@@ -219,7 +212,6 @@ const Groups = () => {
     }
   }, [groups, selectedGroupId]);
 
-  /* ------------ INVITE MODAL (shadcn) ------------ */
   const handleShowInvites = () => {
     if (invites.length === 0) {
       setInvitesResultStatus("info");
@@ -303,7 +295,6 @@ const Groups = () => {
     }
   };
 
-  /* ------------ CREATE GROUP (shadcn) ------------ */
   const handleOpenCreateGroup = () => {
     setNewGroupName("");
     setCreateGroupError(null);
@@ -342,13 +333,11 @@ const handleConfirmCreateGroup = async () => {
     const body = await res.json().catch(() => null);
 
     if (!res.ok) {
-      // 🎯 špeciálne ošetríme chybu z backendu pre duplicitný názov
       if (body?.name && Array.isArray(body.name) && body.name.length > 0) {
-        setCreateGroupError(body.name[0]); // "Group with this name already exists."
-        return; // dialog ostane otvorený, hláška sa zobrazí pod inputom
+        setCreateGroupError(body.name[0]); 
+        return; 
       }
 
-      // generická chyba (napr. iný problém)
       const msg =
         body?.detail ||
         body?.error ||
@@ -361,7 +350,6 @@ const handleConfirmCreateGroup = async () => {
       return;
     }
 
-    // ✅ úspech
     setGroupResultStatus("success");
     setGroupResultMessage("Group has been created successfully.");
     await fetchGroups();
@@ -397,7 +385,6 @@ const handleConfirmCreateGroup = async () => {
   if (loading) {
     return (
       <div className="w-full flex justify-center mt-20">
-        {/* prázdne pozadie / prípadný skeleton */}
       </div>
     );
   }
@@ -429,7 +416,6 @@ const handleConfirmCreateGroup = async () => {
             overflow-hidden
           "
         >
-          {/* ---------- LEFT SIDEBAR: GROUP LIST ---------- */}
           <Card className="col-span-4 bg-card/70 backdrop-blur-xl border rounded-2xl shadow-xl flex flex-col">
             <CardHeader>
               <h2 className="text-xl font-semibold text-foreground">Your Groups</h2>
@@ -507,7 +493,6 @@ const handleConfirmCreateGroup = async () => {
               </div>
             </CardHeader>
 
-            {/* ⭐ FIXED HEIGHT + SCROLL ⭐ */}
             <div className="flex-1">
               <ScrollArea className="h-[calc(100vh-230px)] pr-2">
                 {groups.length === 0 ? (

@@ -1,0 +1,246 @@
+digraph model_graph {
+  // Dotfile by Django-Extensions graph_models
+  // Created: 2026-04-20 00:56
+  // Cli Options: main --inheritance --hide-edge-labels --rankdir TB --disable-fields --include-models Article,Category,Keyword,Tag,Author,ArticleLike,Group,GroupArticleLike,GroupInvite,UserArticleTag,ArticleMetadata,ArticleEmbedding,UserInteraction,RecommendationCache,GroupMessage,GroupNotification --dot -o data_model_relations.dot
+
+  fontname = "Roboto"
+  fontsize = 8
+  splines  = true
+  rankdir = "TB"
+  
+
+  node [
+    fontname = "Roboto"
+    fontsize = 8
+    shape = "plaintext"
+  ]
+
+  edge [
+    fontname = "Roboto"
+    fontsize = 8
+  ]
+
+  // Labels
+
+
+  main_models_Tag [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    Tag
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_Keyword [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    Keyword
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_Article [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    Article
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_Category [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    Category
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_ArticleLike [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    ArticleLike
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_Group [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    Group
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_GroupArticleLike [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    GroupArticleLike
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_GroupInvite [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    GroupInvite
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_UserArticleTag [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    UserArticleTag
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_ArticleMetadata [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    ArticleMetadata
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_Author [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    Author
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_ArticleEmbedding [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    ArticleEmbedding
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_UserInteraction [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    UserInteraction
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_RecommendationCache [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    RecommendationCache
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_GroupMessage [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    GroupMessage
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+  main_models_GroupNotification [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    GroupNotification
+    </B></FONT></TD></TR>
+  
+    </TABLE>
+    >]
+
+
+
+
+  // Relations
+
+  main_models_Article -> main_models_Author
+  [label=" "] [arrowhead=dot arrowtail=dot, dir=both];
+
+  main_models_Article -> main_models_Category
+  [label=" "] [arrowhead=dot arrowtail=dot, dir=both];
+
+  main_models_Article -> main_models_Keyword
+  [label=" "] [arrowhead=dot arrowtail=dot, dir=both];
+
+  main_models_ArticleLike -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupArticleLike -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupArticleLike -> main_models_Group
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupInvite -> main_models_Group
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_UserArticleTag -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_UserArticleTag -> main_models_Tag
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_ArticleMetadata -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=none, dir=both];
+
+  main_models_ArticleMetadata -> main_models_Author
+  [label=" "] [arrowhead=dot arrowtail=dot, dir=both];
+
+  main_models_ArticleEmbedding -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_UserInteraction -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupMessage -> main_models_Group
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupMessage -> main_models_Article
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupMessage -> main_models_GroupMessage
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupNotification -> main_models_Group
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+  main_models_GroupNotification -> main_models_GroupMessage
+  [label=" "] [arrowhead=none, arrowtail=dot, dir=both];
+
+
+}

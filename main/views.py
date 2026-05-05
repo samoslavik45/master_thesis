@@ -104,16 +104,21 @@ def search_articles(request):
     use_fulltext = request.query_params.get('fulltext', 'false').lower() in {'1', 'true', 'yes', 'on'}
     fulltext_mode = request.query_params.get('fulltext_mode', 'phrase').strip().lower()
 
-    if not query:
-        return Response({"articles": []})
-
     categories_map = {
         c.id: {"id": c.id, "name": c.name, "description": c.description}
         for c in Category.objects.all()
     }
 
-    # 1. FULLTEXT REŽIMY
-    if use_fulltext:
+    if not query:
+        articles = (
+            Article.objects
+            .all()
+            .distinct()
+            .prefetch_related("categories", "keywords", "authors")
+            .order_by("-created_at")
+        )
+
+    elif use_fulltext:
         if fulltext_mode == "intelligent":
             search_query = SearchQuery(query, search_type='websearch', config='english')
 
@@ -126,7 +131,6 @@ def search_articles(request):
                 .prefetch_related("categories", "keywords", "authors")
             )
         else:
-            # default = phrase režim
             articles = (
                 Article.objects
                 .filter(
@@ -139,7 +143,6 @@ def search_articles(request):
                 .order_by('-created_at')
             )
 
-    # 2. BASIC SEARCH – nechaj pôvodné správanie
     else:
         base_query = (
             Q(title__icontains=query) |
@@ -154,11 +157,13 @@ def search_articles(request):
                 userarticletag__user=request.user,
                 userarticletag__is_public=False
             )
+
             articles = (
                 Article.objects
                 .filter(base_query | private_tags_query)
                 .distinct()
                 .prefetch_related("categories", "keywords", "authors")
+                .order_by("-created_at")
             )
         else:
             articles = (
@@ -166,6 +171,7 @@ def search_articles(request):
                 .filter(base_query)
                 .distinct()
                 .prefetch_related("categories", "keywords", "authors")
+                .order_by("-created_at")
             )
 
     results = []
@@ -194,7 +200,7 @@ def search_articles(request):
             ],
         }
 
-        if use_fulltext and fulltext_mode == "intelligent":
+        if use_fulltext and fulltext_mode == "intelligent" and query:
             item["search_rank"] = getattr(article, "rank", None)
 
         results.append(item)
@@ -249,38 +255,29 @@ def generate_bibtex(request):
 @permission_classes([IsAuthenticated])
 def delete_article(request, article_id):
     try:
-        # 1️⃣ Nájdeme článok len ak patrí aktuálnemu používateľovi
         article = Article.objects.get(id=article_id, added_by=request.user)
 
-        # 2️⃣ Ak existuje PDF, vymažeme ho zo systému
         if article.pdf_file:
             pdf_path = os.path.join(settings.MEDIA_ROOT, article.pdf_file.name)
             if os.path.exists(pdf_path):
                 os.remove(pdf_path)
 
-        # 3️⃣ Uchováme si jeho keywords a authors pre neskoršiu kontrolu
         keywords_to_check = list(article.keywords.all())
         authors_to_check = list(article.authors.all())
 
-        # (ak máš aj UserArticleTag alebo GroupArticleLike, tie sa automaticky vymažú cez FK CASCADE)
 
-        # 4️⃣ Vymažeme samotný článok
         article.delete()
 
-        # 5️⃣ Skontrolujeme, ktoré keywords/autori už nikde nie sú použité
         for kw in keywords_to_check:
 
-            # všetky keywordy s rovnakým menom (case-insensitive)
             dupes = Keyword.objects.filter(keyword__iexact=kw.keyword)
 
-            # ak hociktorý z týchto keyword objektov je ešte použitý → NEZMAZAŤ
             still_used = False
             for d in dupes:
                 if d.articles.exists():
                     still_used = True
                     break
 
-            # ak žiadny nie je použitý → zmaž všetky duplicity
             if not still_used:
                 dupes.delete()
 
@@ -289,7 +286,6 @@ def delete_article(request, article_id):
             if not author.authored_articles.exists():
                 author.delete()
 
-        # 6️⃣ Tagy — ak už nie sú nikde v UserArticleTag, tiež zmažeme
         from main.models import Tag
         for tag in Tag.objects.all():
             if not tag.userarticletag_set.exists():
@@ -315,7 +311,6 @@ def user_articles(request):
         .prefetch_related("categories", "keywords", "authors")
     )
 
-    # preload category objects
     categories_map = {
         c.id: {"id": c.id, "name": c.name, "description": c.description}
         for c in Category.objects.all()
@@ -324,7 +319,6 @@ def user_articles(request):
     results = []
     for article in articles:
 
-        # pdf path fix
         file_path = article.pdf_file.name if article.pdf_file else ""
         if file_path.startswith("media/"):
             file_path = file_path.replace("media/", "", 1)
@@ -336,20 +330,16 @@ def user_articles(request):
             "pdf_file": file_path,
             "created_at": article.created_at,
 
-            # authors (string[])
             "authors": list(article.authors.values_list("name", flat=True)),
 
-            # keywords (string[])
             "keywords": [kw.keyword for kw in article.keywords.all()],
 
-            # categories (object[])
             "categories": [
                 categories_map[c.id]
                 for c in article.categories.all()
                 if c.id in categories_map
             ],
 
-            # you also have tags in profile, so add them
             "tags": list(
                 Tag.objects.filter(userarticletag__article=article)
                 .values_list("name", flat=True)
@@ -389,18 +379,14 @@ def create_article(request):
         )
 
     try:
-        # 1. preview dáta z prvých strán / metadata
         preview_data = extract_pdf_preview_data(pdf_file)
 
-        # 2. celý text PDF pre fulltext search
         full_text = extract_full_text_from_pdf(pdf_file)
 
-        # 3. metadata ešte stále chceme kvôli subject / creator / year / doi
         raw_bytes = pdf_file.read()
         doc = fitz.open(stream=raw_bytes, filetype="pdf")
         metadata = doc.metadata or {}
 
-        # vrátime pointer na začiatok, aby sa súbor dal uložiť serializerom
         pdf_file.seek(0)
 
     except Exception as e:
@@ -416,7 +402,6 @@ def create_article(request):
     creator = metadata.get('creator', None)
     doi = metadata.get('doi', None)
 
-    # hodnoty z requestu majú prioritu, inak fallback na extrakciu
     title = (request.data.get('title') or preview_data.get('title') or '').strip()
     abstract = (request.data.get('content') or preview_data.get('abstract') or '').strip()
 
@@ -436,7 +421,6 @@ def create_article(request):
     else:
         keywords_list = preview_data.get('keywords', [])
 
-    # jednoduchá deduplikácia podľa názvu PDF súboru
     existing_filename = os.path.basename(pdf_file.name).strip().lower()
     for article in Article.objects.all().only('id', 'pdf_file'):
         if article.pdf_file and os.path.basename(article.pdf_file.name).strip().lower() == existing_filename:
@@ -445,7 +429,6 @@ def create_article(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    # dáta pre serializer
     serializer_data = {
         'title': title,
         'content': abstract,
@@ -458,13 +441,11 @@ def create_article(request):
 
     if serializer.is_valid():
         with transaction.atomic():
-            # uloženie článku vrátane full_text
             article = serializer.save(
                 added_by=request.user,
                 full_text=full_text,
             )
 
-            # metadata
             metadata_instance = ArticleMetadata.objects.create(
                 article=article,
                 title=title,
@@ -475,7 +456,6 @@ def create_article(request):
                 doi=doi
             )
 
-            # autori
             for name in authors_names:
                 clean_name = name.strip()
                 if not clean_name:
@@ -485,7 +465,6 @@ def create_article(request):
                 article.authors.add(author_obj)
                 metadata_instance.authors.add(author_obj)
 
-            # keywords
             for keyword_str in keywords_list:
                 keyword_clean = keyword_str.lower().strip()
                 if not keyword_clean:
@@ -494,10 +473,8 @@ def create_article(request):
                 keyword_obj, _ = Keyword.objects.get_or_create(keyword=keyword_clean)
                 article.keywords.add(keyword_obj)
 
-            # naplnenie PostgreSQL fulltext search vectora
             update_article_search_vector(article.id)
 
-            # odporúčania
             update_single_article_sbert_embedding(article)
             refresh_recommendations_for_all_models(request.user, limit=8)
 
@@ -529,7 +506,7 @@ def all_articles(request):
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import JsonResponse
-import fitz  # PyMuPDF
+import fitz 
 import re
 
 
@@ -546,25 +523,19 @@ def normalize_pdf_text(text: str) -> str:
     if not text:
         return ""
 
-    # odstráň NUL a väčšinu riadiacich znakov okrem \n a \t
     text = "".join(
         ch for ch in text
         if ch == "\n" or ch == "\t" or ord(ch) >= 32
     )
 
-    # spojí rozdelené slová: frame-\nwork -> framework
     text = re.sub(r'(\w)-\n(\w)', r'\1\2', text)
 
-    # newline normalizácia
     text = text.replace('\r\n', '\n').replace('\r', '\n')
 
-    # trim riadkov
     text = "\n".join(line.strip() for line in text.split("\n"))
 
-    # viac medzier -> jedna
     text = re.sub(r'[ \t]+', ' ', text)
 
-    # viac prázdnych riadkov -> max dva
     text = re.sub(r'\n{3,}', '\n\n', text)
 
     return text.strip()
@@ -599,7 +570,6 @@ def trim_reference_section(text: str) -> str:
         if match:
             candidate = text[:match.start()].strip()
 
-            # neorež text, ak by sme odrezali príliš skoro
             if len(candidate.split()) >= 200:
                 return candidate
 
@@ -642,7 +612,6 @@ def clean_abstract_text(text: str) -> str:
     text = text.strip(" :-\n\t")
     text = re.sub(r'\s+', ' ', text).strip()
 
-    # príliš krátky výsledok nechceme
     if len(text.split()) < 20:
         return ""
 
@@ -666,7 +635,6 @@ def extract_abstract_from_text(text: str) -> str:
             if abstract:
                 return abstract
 
-    # fallback: ak je samostatný riadok "Abstract", vezmi blok pod ním
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
     for i, line in enumerate(lines):
@@ -696,7 +664,6 @@ def split_keywords(raw_keywords: str) -> list[str]:
         if kw and len(kw) > 1:
             cleaned.append(kw)
 
-    # deduplikácia pri zachovaní poradia
     seen = set()
     result = []
     for kw in cleaned:
@@ -833,7 +800,6 @@ def like_article(request, article_id):
 def liked_articles(request):
     user = request.user
 
-    # get liked article objects
     liked = (
         ArticleLike.objects
         .filter(user=user)
@@ -846,7 +812,6 @@ def liked_articles(request):
         .prefetch_related("categories", "keywords", "authors")
     )
 
-    # preload category metadata
     categories_map = {
         c.id: {"id": c.id, "name": c.name, "description": c.description}
         for c in Category.objects.all()
@@ -856,7 +821,6 @@ def liked_articles(request):
 
     for article in articles:
 
-        # file path
         file_path = article.pdf_file.name if article.pdf_file else ""
         if file_path.startswith("media/"):
             file_path = file_path.replace("media/", "", 1)
@@ -868,20 +832,16 @@ def liked_articles(request):
             "pdf_file": file_path,
             "created_at": article.created_at,
 
-            # authors (strings)
             "authors": list(article.authors.values_list("name", flat=True)),
 
-            # keywords (strings)
             "keywords": [kw.keyword for kw in article.keywords.all()],
 
-            # categories (objects)
             "categories": [
                 categories_map[c.id]
                 for c in article.categories.all()
                 if c.id in categories_map
             ],
 
-            # liked articles also need tags (like profile shows)
             "tags": list(
                 Tag.objects.filter(userarticletag__article=article)
                 .values_list("name", flat=True)
@@ -928,7 +888,6 @@ from .serializers import GroupSerializer
 def create_group(request):
     name = request.data.get("name", "").strip()
 
-    # 1) kontrola duplicitného názvu (case-insensitive)
     if not name:
         return Response(
             {"name": ["Group name is required."]},
@@ -941,7 +900,6 @@ def create_group(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # 2) pokračuj štandardne
     serializer = GroupSerializer(data={**request.data, "name": name})
     if serializer.is_valid():
         group = serializer.save(admin=request.user)
@@ -1166,11 +1124,9 @@ def update_article(request, article_id):
     if article.added_by != request.user:
         return Response({"detail": "Nemáte oprávnenie upravovať tento článok."}, status=403)
 
-    # hack – backend očakáva categories cez categories=[]
     if 'category_id' in request.data:
         request.data['categories'] = [request.data.pop('category_id')]
 
-    # ULOŽ STARÉ KEYWORDY SKÔR, NEŽ SA NĚČO ZMENÍ
     old_keywords = list(article.keywords.all())
 
     serializer = ArticleSerializer(article, data=request.data, partial=True)
@@ -1178,7 +1134,7 @@ def update_article(request, article_id):
         print(serializer.errors)
         return Response(serializer.errors, status=400)
 
-    updated_article = serializer.save()   # 🔥 TU UŽ JE ARTICLE UPDATE FINÁLNY
+    updated_article = serializer.save()  
 
     # -------------------------------------------------------
     # AUTHORS
@@ -1199,7 +1155,7 @@ def update_article(request, article_id):
     metadata.authors.set(author_instances)
 
     # -------------------------------------------------------
-    # KEYWORDS – jednotná normalizácia + deduplikácia
+    # KEYWORDS
     # -------------------------------------------------------
     keywords_text = request.data.get("keywords_text", "")
 
@@ -1226,10 +1182,8 @@ def update_article(request, article_id):
     # REMOVE UNUSED KEYWORDS AFTER EDIT
     # -------------------------------------------------------
 
-    # zistíme keywordy po update
     new_keywords = list(updated_article.keywords.all())
 
-    # keywordy, ktoré boli na článku predtým, ale už nie sú
     removed_keywords = [kw for kw in old_keywords if kw not in new_keywords]
 
     for kw in removed_keywords:
@@ -1240,9 +1194,6 @@ def update_article(request, article_id):
         if not used_somewhere:
             dupes.delete()
 
-    # -------------------------------------------------------
-    # Zvyšné metadata polia
-    # -------------------------------------------------------
     for field in ["title", "subject", "creationDate", "creator", "doi"]:
         if field in request.data:
             setattr(metadata, field, request.data[field])
@@ -1283,7 +1234,6 @@ class ArticlesByCategory(APIView):
 
     def get(self, request, category_id):
 
-        # Fetch articles + prefetch related objects
         articles = (
             Article.objects
             .filter(categories__id=category_id)
@@ -1292,7 +1242,6 @@ class ArticlesByCategory(APIView):
 
         serialized = ArticleSerializer(articles, many=True).data
 
-        # Preload category + keyword dictionaries (super fast)
         categories_map = {
             c.id: {"id": c.id, "name": c.name, "description": c.description}
             for c in Category.objects.all()
@@ -1302,20 +1251,16 @@ class ArticlesByCategory(APIView):
             for k in Keyword.objects.all()
         }
 
-        # Transform serialized result to correct frontend shape
         for article in serialized:
 
-            # Remove "/media/" prefix
             if article["pdf_file"].startswith("/media/"):
                 article["pdf_file"] = article["pdf_file"].replace("/media/", "", 1)
 
-            # Replace category IDs -> category objects
             article["categories"] = [
                 categories_map[cat_id] for cat_id in article["categories"]
                 if cat_id in categories_map
             ]
 
-            # Replace keyword IDs -> keyword string
             article["keywords"] = [
                 keywords_map[kw_id] for kw_id in article["keywords"]
                 if kw_id in keywords_map
@@ -1330,12 +1275,10 @@ class ArticlesByCategory(APIView):
 def create_keyword(request):
     raw_kw = request.data.get('keyword', '')
 
-    # 1) ošetri vstup
     cleaned = raw_kw.strip().lower()
     if not cleaned:
         return Response({'error': 'Keyword cannot be empty.'}, status=400)
 
-    # 2) case-insensitive deduplikácia
     existing = Keyword.objects.filter(keyword__iexact=cleaned).first()
     if existing:
         kw_obj = existing
@@ -1408,18 +1351,16 @@ def similar_to_article(request, article_id):
     k = int(request.query_params.get('k', 5))
     algo = request.query_params.get('algo', 'tfidf-v1')
 
-    # 1. Nájdeme embedding aktuálneho článku pre zvolený model
     me = ArticleEmbedding.objects.filter(
         article_id=article_id,
         model_name=algo
     ).first()
 
     if not me:
-        return Response([])  # článok ešte nemá embedding pre tento model
+        return Response([])  
 
     me_vec = np.array(me.vector, dtype=float)
 
-    # 2. Načítať embeddingy všetkých ostatných článkov pre rovnaký model
     candidates = ArticleEmbedding.objects.filter(
         model_name=algo
     ).exclude(
@@ -1433,13 +1374,10 @@ def similar_to_article(request, article_id):
         sim = cosine_similarity(me_vec, v)
         scored.append((cand.article_id, sim))
 
-    # 3. Zoradiť podľa similarity zostupne
     scored.sort(key=lambda x: x[1], reverse=True)
 
-    # 4. Vybrať top k výsledkov
     top_ids = [aid for aid, sim in scored[:k]]
 
-    # 5. Načítať články a serializovať
     articles = Article.objects.filter(id__in=top_ids)
     serialized = ArticleSerializer(
         articles,
@@ -1447,7 +1385,6 @@ def similar_to_article(request, article_id):
         context={'request': request}
     ).data
 
-    # zachovať pôvodné poradie
     id_to_data = {a['id']: a for a in serialized}
     ordered = [id_to_data[i] for i in top_ids if i in id_to_data]
 

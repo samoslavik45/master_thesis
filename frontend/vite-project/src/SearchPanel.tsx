@@ -25,7 +25,7 @@ import {
 
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { ChevronsUpDown, Info, Check } from "lucide-react";
-import { Category } from "./types"; // 🔥 používaš jeden spoločný typ
+import { Category } from "./types"; 
 
 interface SearchPanelProps {
   onSearch: (query: string, useFullText: boolean) => void;
@@ -57,13 +57,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
   const onCategoryPick = (cat: Category) => {
     setSelectedCategory(cat);
-    onCategorySelect(cat);  // 🔥 len toto, žiadny onSearch
+    onCategorySelect(cat); 
     setOpen(false);
   };
 
   const clearCategory = () => {
     setSelectedCategory(null);
-    onCategorySelect(null); // 🔥 parent vie, že filter sa zrušil
+    onCategorySelect(null); 
   };
 
   const showInfo = (cat: Category) => {
@@ -74,7 +74,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="relative overflow-hidden rounded-3xl border border-[hsl(var(--border))] bg-[hsl(var(--card))/0.9] shadow-[0_22px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-        {/* soft glow blobs */}
         <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,hsl(var(--primary))/0.18,transparent_60%)]" />
         <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-[radial-gradient(circle_at_center,hsl(var(--accent))/0.9,transparent_65%)]" />
 

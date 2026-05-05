@@ -38,8 +38,8 @@ class Keyword(models.Model):
 class Article(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
-    full_text = models.TextField(blank=True, default="")   # ⬅️ nové
-    search_vector = SearchVectorField(null=True, blank=True)  # ⬅️ nové
+    full_text = models.TextField(blank=True, default="")   
+    search_vector = SearchVectorField(null=True, blank=True) 
 
     pdf_file = models.FileField(upload_to='articles_pdfs/')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -105,11 +105,11 @@ class UserArticleTag(models.Model):
 
 class ArticleMetadata(models.Model):
     article = models.OneToOneField(Article, on_delete=models.CASCADE, related_name='metadata')
-    authors = models.ManyToManyField('Author', related_name='metadata_authors')  # Zmena na ManyToManyField
+    authors = models.ManyToManyField('Author', related_name='metadata_authors') 
     title = models.CharField(max_length=255, blank=True, null=True)
     subject = models.CharField(max_length=255, blank=True, null=True)
     creationDate = models.CharField(max_length=255, blank=True, null=True)
-    keywords = models.TextField(blank=True, null=True)  # This can be a comma-separated string of keywords
+    keywords = models.TextField(blank=True, null=True) 
     creator = models.CharField(max_length=255, blank=True, null=True)
     doi = models.CharField(max_length=255, blank=True, null=True)
 
@@ -128,8 +128,8 @@ class ArticleEmbedding(models.Model):
         on_delete=models.CASCADE,
         related_name='embeddings'
     )
-    vector = models.JSONField()  # list of floats
-    model_name = models.CharField(max_length=100)  # e.g. 'tfidf-v1' or 'sbert-v1'
+    vector = models.JSONField() 
+    model_name = models.CharField(max_length=100) 
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -143,13 +143,12 @@ class ArticleEmbedding(models.Model):
 class UserInteraction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     article = models.ForeignKey(Article, on_delete=models.CASCADE)
-    # 1 = like, 2 = click_reco, 3 = dismiss_reco
     kind = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
 class RecommendationCache(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    payload = models.JSONField()  # list of dicts {id: ..., score: ...}
+    payload = models.JSONField() 
     algo = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
 

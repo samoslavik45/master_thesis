@@ -67,7 +67,7 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
   const [showKeywordsModal, setShowKeywordsModal] = useState(false);
   const [editedKeywords, setEditedKeywords] = useState<EditedKeyword[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [keywordsChanged, setKeywordsChanged] = useState(false); // používa ho KeywordsModal, ale my už na ňom nezávisíme
+  const [keywordsChanged, setKeywordsChanged] = useState(false); 
   const [initialized, setInitialized] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [saveResultOpen, setSaveResultOpen] = useState(false);
@@ -75,9 +75,6 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
 
 
 
-  // ---------------------------------------------------------------------------
-  // 1) Načítanie všetkých keywordov z backendu
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     const fetchKeywords = async () => {
       try {
@@ -92,7 +89,6 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
     fetchKeywords();
   }, []);
 
-  // mapa id -> názov
   const keywordMap: { [key: string]: string } = keywordData.reduce(
     (map, keyword) => {
       map[keyword.id.toString()] = keyword.keyword;
@@ -101,9 +97,6 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
     {} as { [key: string]: string }
   );
 
-  // ---------------------------------------------------------------------------
-  // 2) Keď sa zmení article, nastavíme základný formData + selectedKeywordIds
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!show) {
       setInitialized(false);
@@ -112,21 +105,18 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
 
     if (initialized) return;
     if (!article) return;
-    if (!keywordData.length) return; // počkaj, kým sa načíta zoznam keywordov
+    if (!keywordData.length) return; 
 
     const initialAuthors = article.authors.join(", ");
 
-    // CATEGORY FIX – ostáva tak ako máš ↓
     const categoryId =
       article.categories?.[0]?.id ??
       (typeof article.category === "object"
         ? (article.category as any).id
         : (article.category as any));
 
-    // KEYWORDS FIX 🟫
     const kwIds = article.keywords
       .map((keywordName: string) => {
-        // nájde keyword v keywordData podľa názvu
         const found = keywordData.find(
           (kw) => kw.keyword.toLowerCase() === keywordName.toLowerCase()
         );
@@ -150,11 +140,6 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
   }, [show, article?.id, keywordData.length]);
 
 
-
-
-  // ---------------------------------------------------------------------------
-  // 3) Keď máme keywordData alebo selectedKeywordIds, dopočítame názvy
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!selectedKeywordIds.length || !keywordData.length) {
       setSelectedKeywordNames([]);
@@ -169,12 +154,9 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
   }, [selectedKeywordIds, keywordData]);
 
 
-  // ---------------------------------------------------------------------------
-  // 4) Edit keywords – otvoríme KeywordsModal s existujúcimi keywordmi
-  // ---------------------------------------------------------------------------
   const handleEditKeywordsClick = () => {
     const keywordsToEdit: EditedKeyword[] = selectedKeywordIds.map((id) => ({
-      id: id.toString(),                              // ⬅️ dôležitá zmena
+      id: id.toString(),                             
       value: keywordMap[id.toString()] || 'Unknown keyword',
       selected: true,
     }));
@@ -184,9 +166,6 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
   };
 
 
-  // ---------------------------------------------------------------------------
-  // 5) Pomocná funkcia na vytvorenie keywordu na backende
-  // ---------------------------------------------------------------------------
   async function createKeyword(keyword: string) {
     const response = await fetch('http://localhost:8000/api/create/keyword/', {
       method: 'POST',
@@ -199,16 +178,9 @@ const EditArticleModal: React.FC<EditArticleModalProps> = ({
     return response.json() as Promise<Keyword>;
   }
 
-  // ---------------------------------------------------------------------------
-  // 6) Potvrdenie keywords z KeywordsModal
-  //    - vytvoríme nové keywords
-  //    - spojíme staré + nové
-  //    - uložíme ID aj názvy do state
-  // ---------------------------------------------------------------------------
 const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
   console.log('handleKeywordsConfirm – selected:', selected);
 
-  // EXISTUJÚCE keywordy, ktoré user ponechal a NEZMENIL ich názov
   const existingSelected = selected.filter((kw) => {
     if (!kw.selected || !kw.id || kw.id.trim() === '') return false;
 
@@ -218,18 +190,14 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
     return originalName.toLowerCase() === newName.toLowerCase();
   });
 
-  // NOVÉ keywordy:
-  // 1) tie bez ID
-  // 2) tie, čo sa zmenili (prepísané)
+
   const newSelected = selected.filter((kw) => {
     if (!kw.selected) return false;
 
     const newName = kw.value.trim();
 
-    // úplne nové keywords (nemajú ID)
     if (!kw.id || kw.id.trim() === '') return newName !== '';
 
-    // keywords, ktoré mali ID, ale boli prepísané
     const originalName = keywordMap[kw.id.toString()];
     return originalName.toLowerCase() !== newName.toLowerCase();
   });
@@ -237,23 +205,19 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
   console.log('existingSelected:', existingSelected);
   console.log('newSelected (to create or changed):', newSelected);
 
-  // Vytvoríme nové (alebo prepísané) keywords v DB
   const createdKeywords: Keyword[] = await Promise.all(
     newSelected.map((kw) => createKeyword(kw.value.trim()))
   );
 
   console.log('createdKeywords from backend:', createdKeywords);
 
-  // Pridáme ich do keywordData → obnoví keywordMap
   setKeywordData((prev) => [...prev, ...createdKeywords]);
 
-  // ID všetkých vybraných Keywordov
   const allIds: number[] = [
     ...existingSelected.map((kw) => Number(kw.id)),
     ...createdKeywords.map((kw) => kw.id),
   ];
 
-  // Názvy pre UI
   const allNames: string[] = [
     ...existingSelected.map((kw) => kw.value.trim()),
     ...createdKeywords.map((kw) => kw.keyword),
@@ -274,11 +238,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
   setKeywordsChanged(false);
 };
 
-
-
-  // ---------------------------------------------------------------------------
-  // 7) Zmena inputov (title, content, author_name, category)
-  // ---------------------------------------------------------------------------
   const handleChange = (
     event: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -291,9 +250,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
     }));
   };
 
-  // ---------------------------------------------------------------------------
-  // 8) Update článku na backende (PUT)
-  // ---------------------------------------------------------------------------
   async function updateArticle(articleData: any) {
     try {
       const response = await fetch(
@@ -322,10 +278,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
     }
   }
 
-
-  // ---------------------------------------------------------------------------
-  // 9) Submit formulára
-  // ---------------------------------------------------------------------------
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -340,8 +292,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
       .filter(Boolean);
     console.log('AuthorsArray:', authorsArray);
 
-    // Ak by z nejakého dôvodu selectedKeywordNames boli prázdne,
-    // dopočítame ich z mapy (bezpečnostná sieť)
     let keywordNamesToUse = selectedKeywordNames;
     if (!keywordNamesToUse.length && selectedKeywordIds.length) {
       keywordNamesToUse = selectedKeywordIds
@@ -366,9 +316,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
     await updateArticle(articleData);
   };
 
-  // ---------------------------------------------------------------------------
-  // 10) Delete článku
-  // ---------------------------------------------------------------------------
   const handleDelete = () => {
     setDeleteOpen(true);
   };
@@ -381,9 +328,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
 
 
 
-  // ---------------------------------------------------------------------------
-  // 11) Filter kategórií
-  // ---------------------------------------------------------------------------
   const filteredCategories = categories.filter((category) =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -392,9 +336,6 @@ const handleKeywordsConfirm = async (selected: EditedKeyword[]) => {
     return null;
   }
 
-  // ---------------------------------------------------------------------------
-  // 12) Render
-  // ---------------------------------------------------------------------------
 return (
   <Dialog open={show} onOpenChange={onClose}>
     <DialogContent
@@ -544,7 +485,6 @@ return (
               </div>
             </div>
 
-            {/* SEARCH + LIST – POD SEBOU */}
             <div className="space-y-3">
               {/* Search input */}
               <div className="space-y-2">

@@ -78,7 +78,6 @@ return (
         </DialogTitle>
       </DialogHeader>
 
-      {/* SCROLL ZÓNA */}
       <ScrollArea className="max-h-[60vh] px-6">
         <div className="space-y-4 pb-4">
 
@@ -96,7 +95,6 @@ return (
                 shadow-sm
               "
             >
-              {/* CHECKBOX */}
               <div className="flex items-center gap-2">
                 <Checkbox
                   checked={keyword.selected}
@@ -104,7 +102,6 @@ return (
                 />
               </div>
 
-              {/* INPUT */}
               <Input
                 value={keyword.value}
                 onChange={(e) => handleChange(index, e.target.value)}
@@ -114,7 +111,6 @@ return (
             </div>
           ))}
 
-          {/* ADD KEYWORD BUTTON */}
           <Button
             type="button"
             variant="secondary"

@@ -14,7 +14,6 @@ const MainContent: React.FC = () => {
   const [useFullTextSearch, setUseFullTextSearch] = useState(false);
   
 
-  // CATEGORIES – načítaj raz
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -30,7 +29,6 @@ const MainContent: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // GROUPS – pri zmene loginu
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
 

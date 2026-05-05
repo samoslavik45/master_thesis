@@ -66,7 +66,6 @@ function App() {
     setIsLoggedIn(!!token);
   }, []);
 
-  // načítanie aktuálneho usera po logine
   useEffect(() => {
     const fetchCurrentUser = async () => {
       const token = localStorage.getItem("accessToken");
@@ -170,7 +169,7 @@ function App() {
 
             {/* RIGHT SIDE NAV */}
             <nav className="hidden md:flex items-center gap-6">
-              {/* Profile / Groups len keď je user prihlásený */}
+              {/* Profile */}
               {isLoggedIn && (
                 <>
                   <Link
@@ -199,7 +198,6 @@ function App() {
                 </>
               )}
 
-              {/* Keď nie som prihlásený → len Log in */}
               {!isLoggedIn ? (
                 <button
                   onClick={() => setLoginOpen(true)}
@@ -218,13 +216,10 @@ function App() {
                   Log in
                 </button>
               ) : (
-                // Keď som prihlásený → greeting + 3-bodkové menu
                 <div className="ml-4 flex items-center gap-3">
                   {currentUser && (
                     <div className="flex items-center gap-3">
-                      {/* Avatar / initials with glow ring */}
                       <div className="relative h-8 w-8">
-                        {/* glow / ring */}
                         <div
                           className="
                             absolute inset-0
@@ -478,8 +473,7 @@ function App() {
               py-3 text-center text-sm
             "
           >
-            Pôvodne navrhol a vytvoril Samuel Slávik (2024) ako bakalársku prácu
-            na UK — FMFI.
+            Pôvodne navrhol a vytvoril Samuel Slávik ako bakalársku prácu (2024), neskôr rozšíril a upravil v rámci diplomovej práce (2026) na FMFI UK.
           </footer>
         )}
       </div>

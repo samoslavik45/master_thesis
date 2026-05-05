@@ -120,7 +120,6 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({
 
     setNewMessage(value);
 
-    // ak používateľ zmazal celý trigger alebo časť triggeru, suggestion box zavri
     if (isDeleting && triggerStart !== null) {
       const tail = value.slice(triggerStart);
       if (!tail.startsWith("@") && !tail.startsWith("#")) {
@@ -133,7 +132,6 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({
         return;
       }
 
-      // ak maže v rámci aktívneho triggeru, dočasne netreba znovu otvárať suggestions
       setSuggestMode(null);
       setSuggestQuery("");
       setActiveSuggestionIndex(0);
@@ -158,7 +156,6 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({
     const query = match[2] ?? "";
     const startIndex = value.length - match[0].length;
 
-    // po ďalšom novom napísaní sa suggestions môžu znova normálne zobrazovať
     if (suppressSuggestUntilNextTrigger && !isDeleting) {
       setSuppressSuggestUntilNextTrigger(false);
     }
@@ -468,7 +465,6 @@ const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
           backdrop-blur-xl
         "
       >
-        {/* Celý modal je flex kolumna s pevnou výškou */}
         <div className="flex h-full flex-col overflow-hidden">
           <DialogHeader className="shrink-0 px-5 py-2 border-b border-[hsl(var(--border))] bg-[linear-gradient(to_right,hsl(var(--card)),hsl(var(--muted))/0.65)]">
             <DialogTitle className="flex items-center gap-2.5 text-base font-semibold tracking-tight">
@@ -484,7 +480,6 @@ const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Stredná časť — rastie a správy scrollujú vnútri */}
           <div className="flex min-h-0 flex-1 flex-col px-5 py-3 overflow-hidden">
             {replyTo && (
               <div className="shrink-0 mb-3 flex items-start justify-between gap-3 rounded-2xl border border-[hsl(var(--primary))/0.25] bg-[hsl(var(--primary))/0.06] px-4 py-3">
@@ -530,7 +525,6 @@ const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
               </div>
             )}
 
-            {/* SCROLL BLOK — flex-1 + min-h-0 zaručí že sa neroztiahne von z modalu */}
             <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))/0.35]">
               <ScrollArea className="h-full w-full px-3 py-3">
                 {loading ? (

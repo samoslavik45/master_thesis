@@ -84,12 +84,10 @@ const Profile = () => {
 
     const [keywords, setKeywords] = useState<Keyword[]>([]);
 
-    //testovací debug
     const [debugOpen, setDebugOpen] = useState(false);
     const [debugLoading, setDebugLoading] = useState(false);
     const [debugData, setDebugData] = useState<any | null>(null);
 
-    // debug funkcia
     const fetchRecommendationDebug = async () => {
       const token = localStorage.getItem("accessToken");
       if (!token) {
@@ -172,7 +170,6 @@ const Profile = () => {
     useEffect(() => {
       const token = localStorage.getItem("accessToken");
 
-      // helper na validáciu tokenu
       const isTokenValid = () => {
         if (!token) return false;
         try {
@@ -185,14 +182,12 @@ const Profile = () => {
 
       if (!isTokenValid()) {
         setIsLoggedIn(false);
-        setLoading(false);    // ✅ máme overené, že nie je prihlásený
+        setLoading(false);   
         return;
       }
 
-      // token je OK → používateľ je prihlásený
       setIsLoggedIn(true);
 
-      // načítaj všetko a až potom vypni loading
       Promise.all([loadAll(), fetchRecommendations(), fetchRecommendationDebug()])        .catch((err) => {
           console.error("Error while loading profile:", err);
           setIsLoggedIn(false);
@@ -383,7 +378,6 @@ const Profile = () => {
       const data = await response.json();
       console.log(data.message);
 
-      // zavrieme input dialog a ukážeme result dialog
       setAddTagDialogOpen(false);
       setTagResultStatus("success");
       setTagResultMessage("The tag has been successfully added.");
@@ -467,8 +461,8 @@ const Profile = () => {
       }
 
       await fetchRecommendations();
-      await fetchRecommendationDebug(); // debug
-      await loadAll(); // refresh favourites count + liked list
+      await fetchRecommendationDebug();
+      await loadAll(); 
     } catch (err) {
       console.error("Error liking recommendation:", err);
     }
@@ -500,7 +494,7 @@ const Profile = () => {
       }
 
       await fetchRecommendations();
-      await fetchRecommendationDebug(); // debug
+      await fetchRecommendationDebug(); 
     } catch (err) {
       console.error("Error dismissing recommendation:", err);
     }
@@ -510,7 +504,6 @@ const Profile = () => {
 if (loading) {
   return (
     <div className="flex flex-col items-center justify-center mt-20">
-        {/* prázdna stránka / loader */}
     </div>
   );
 }
@@ -914,7 +907,8 @@ return (
               >
                 {selectedRecoModel === "sbert-v1" ? "SBERT" : "TF-IDF"}
               </div>
-
+              
+              {/*
               <Button
                 variant="outline"
                 size="sm"
@@ -923,6 +917,7 @@ return (
               >
                 {debugOpen ? "Hide debug" : "Show debug"}
               </Button>
+              */}
             </div>
           </div>
 
@@ -951,7 +946,6 @@ return (
         </Tabs>
         
 
-        {/* testovací debug panel */}
 
         {debugOpen && (
           <div className="mb-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm">

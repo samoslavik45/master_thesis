@@ -58,7 +58,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
   const [pdfUploaded, setPdfUploaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // NEW: state pre shadcn “New category” dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
@@ -78,9 +77,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ---------------------------------------------------------------------------
-  // Načítanie kategórií
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -97,9 +93,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     fetchCategories();
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Handler zmien v textových poliach
-  // ---------------------------------------------------------------------------
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -110,9 +103,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     }));
   };
 
-  // ---------------------------------------------------------------------------
-  // Reset + zatvorenie modalu
-  // ---------------------------------------------------------------------------
+
   const handleClose = () => {
     setFormData(initialFormData);
     setFile(null);
@@ -126,9 +117,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     onClose();
   };
 
-  // ---------------------------------------------------------------------------
-  // Upload PDF + extrakcia meta + keywords
-  // ---------------------------------------------------------------------------
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
 
@@ -147,7 +135,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       const data = await response.json();
       setPdfUploaded(true);
 
-      // Title, authors, abstract
       setFormData((prevState) => ({
         ...prevState,
         title: data.title || "",
@@ -159,7 +146,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
         setShowAbstractModal(true);
       }
 
-      // Keywords → do modalu + inputu
       if (Array.isArray(data.keywords)) {
         const cleanedKeywords = data.keywords
           .map((kw: string) => kw.replace(/\s+/g, " ").trim())
@@ -189,9 +175,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // NEW: shadcn “New category” dialog – otvorenie
-  // ---------------------------------------------------------------------------
+
   const openAddCategoryDialog = () => {
     setNewCategoryName("");
     setNewCategoryDescription("");
@@ -199,9 +183,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     setAddCategoryOpen(true);
   };
 
-  // ---------------------------------------------------------------------------
-  // NEW: vytvorenie kategórie cez API
-  // ---------------------------------------------------------------------------
+
   const handleConfirmAddCategory = async () => {
     if (!newCategoryName.trim() || !newCategoryDescription.trim()) {
       setAddCategoryError("Please fill in both name and description.");
@@ -233,7 +215,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
         return;
       }
 
-      // pridáme novú kategóriu do zoznamu a rovno ju vyberieme
       setCategories((prev) => [...prev, result]);
       setSelectedCategory(result.id.toString());
       setAddCategoryOpen(false);
@@ -246,9 +227,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Potvrdenie keywords z KeywordsModal
-  // ---------------------------------------------------------------------------
+
   const handleKeywordsConfirm = (edited: EditedKeyword[]) => {
     const selectedValues = edited
       .filter((k) => k.selected && k.value.trim() !== "")
@@ -262,9 +241,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     setKeywordsChanged(false);
   };
 
- // ---------------------------------------------------------------------------
-  // Submit formulára
-  // ---------------------------------------------------------------------------
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -319,7 +296,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
         return;
       }
 
-      // success
       setSubmitStatus("success");
       setSubmitMessage("Article has been successfully posted.");
       setSubmitResultOpen(true);
@@ -336,9 +312,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     return null;
   }
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
   return (
     <>
       <Dialog
@@ -436,7 +409,6 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                 )}
               </section>
 
-              {/* Zvyšok formulára až po uploade */}
               {pdfUploaded && (
                 <>
                   {/* TITLE */}

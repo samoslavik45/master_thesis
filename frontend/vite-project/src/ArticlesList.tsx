@@ -1,6 +1,3 @@
-// Modernized ArticlesList with full original functionality preserved
-// Using shadcn/ui components and badges for categories & keywords
-
 import React, { useState, useContext, useEffect, useRef } from "react";
 import { Article, Category } from "./types";
 import axios from "axios";
@@ -343,7 +340,6 @@ const showTags = async (articleId: number) => {
     let userTags: string[] = [];
 
     if (token) {
-      // PRIHLÁSENÝ – načítame public aj user tags
       const response = await fetch(
         `http://localhost:8000/api/article/${articleId}/tags/`,
         {
@@ -357,7 +353,6 @@ const showTags = async (articleId: number) => {
       publicTags = data.publicTags || [];
       userTags = data.userTags || [];
     } else {
-      // NEPRIHLÁSENÝ – načítame LEN public tags
       const response = await fetch(
         `http://localhost:8000/api/article/${articleId}/public_tags/`
       );
@@ -407,11 +402,9 @@ const handleOpenSimilarArticle = (targetId: number) => {
 
 const visibleArticles = articles.slice(0, visibleCount);
 
-  // ArticlesList.tsx – nový return blok
 return (
   <div className="w-full max-w-5xl mx-auto mt-2 px-4 pb-24">
 
-    {/* BACKGROUND WRAPPER OF ARTICLES */}
       {articles.length > 0 && (
         <div
           className="
@@ -500,7 +493,6 @@ return (
 
               {isExpanded && (
                 <CardContent className="px-8 pb-4 space-y-5">
-                  {/* NEW ULTRA-COMPACT METADATA + ACTION BAR */}
                   <div
                     className="
                       mt-2
@@ -514,7 +506,6 @@ return (
                   >
                     <div className="flex justify-between items-start gap-6">
 
-                    {/* LEFT SIDE — AUTHORS + KEYWORDS */}
                     <div className="flex flex-col gap-6 flex-1">
 
                       {/* AUTHORS */}
@@ -968,7 +959,7 @@ return (
                                   size="sm"
                                   variant="outline"
                                   onClick={(e) => {
-                                    e.stopPropagation(); // aby sa neotváral detail pri kliku na PDF
+                                    e.stopPropagation(); 
                                     window.open(`${sim.pdf_file}`, "_blank");
                                   }}
                                   className="
