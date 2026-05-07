@@ -64,16 +64,6 @@ Podporované sú dva režimy:
 - **Phrase search** — hľadanie presného výskytu zadanej frázy,
 - **Intelligent search** — vyhľadávanie nad indexovaným obsahom článkov pomocou PostgreSQL full-text search a radenie výsledkov podľa relevancie.
 
-## Skupinová komunikácia
-
-Systém umožňuje používateľom vytvárať skupiny, zdieľať v nich články a diskutovať o nich priamo v aplikácii. Skupinová komunikácia podporuje:
-
-- odosielanie správ,
-- odpovedanie na správy,
-- zmienky používateľov pomocou `@`,
-- referencovanie článkov pomocou `#`,
-- notifikácie pri označení používateľa.
-
 ## Experimentálne vyhodnotenie
 
 Súčasťou diplomovej práce bolo experimentálne porovnanie modelov TF-IDF a Sentence-BERT pri personalizovanom odporúčaní vedeckých článkov. Vyhodnotenie bolo realizované na vlastnom datasete 250 vedeckých článkov a sledovalo kvalitu odporúčaní v základnom aj rozšírenom scenári personalizácie.
