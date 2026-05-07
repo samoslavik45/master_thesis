@@ -9,16 +9,31 @@ def add_bar_labels(ax):
         ax.bar_label(container, fmt="%.4f", padding=3, fontsize=10)
 
 
-def build_grouped_plot(df: pd.DataFrame, metrics: list[str], title: str, output_path: Path):
-    plot_df = df.set_index("model")[metrics].T
+def build_grouped_plot(
+    df: pd.DataFrame,
+    metrics: list[str],
+    title: str,
+    output_path: Path,
+):
+    pretty = df.copy()
+    pretty["model"] = pretty["model"].replace({
+        "tfidf-v1": "TF-IDF",
+        "sbert-v1": "SBERT",
+    })
+
+    plot_df = pretty.set_index("model")[metrics].T
+
     ax = plot_df.plot(kind="bar", figsize=(12, 7))
     ax.set_title(title, fontsize=18, pad=16)
-    ax.set_xlabel("Metric", fontsize=12)
-    ax.set_ylabel("Score", fontsize=12)
+    ax.set_xlabel("Metrika", fontsize=12)
+    ax.set_ylabel("Hodnota", fontsize=12)
     ax.set_ylim(0, max(plot_df.max()) + 0.08)
     ax.tick_params(axis="x", rotation=0)
     ax.legend(title="Model")
+    ax.grid(axis="y", alpha=0.25)
+
     add_bar_labels(ax)
+
     plt.tight_layout()
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
     plt.close()
@@ -42,23 +57,33 @@ def build_difference_plot(df: pd.DataFrame, output_path: Path):
     delta = pd.Series({metric: sbert[metric] - tfidf[metric] for metric in metrics})
 
     ax = delta.plot(kind="bar", figsize=(13, 7))
-    ax.set_title("Extended scenario: difference by metric (SBERT - TF-IDF)", fontsize=18, pad=16)
-    ax.set_xlabel("Metric", fontsize=12)
-    ax.set_ylabel("Difference (positive = SBERT better, negative = TF-IDF better)", fontsize=12)
+    ax.set_title("Rozdiel výsledkov medzi modelmi v rozšírenom experimente", fontsize=18, pad=16)
+    ax.set_xlabel("Metrika", fontsize=12)
+    ax.set_ylabel(
+        "Rozdiel (kladná hodnota = lepší SBERT, záporná hodnota = lepší TF-IDF)",
+        fontsize=12,
+    )
     ax.axhline(0, linewidth=1)
     ax.tick_params(axis="x", rotation=35)
+    ax.grid(axis="y", alpha=0.25)
 
     for container in ax.containers:
         ax.bar_label(container, fmt="%.4f", padding=3, fontsize=10)
 
     ax.text(
-        0.99, 0.98,
-        "Above 0: SBERT performs better\nBelow 0: TF-IDF performs better",
+        0.99,
+        0.98,
+        "Nad 0: lepší SBERT\nPod 0: lepší TF-IDF",
         transform=ax.transAxes,
         ha="right",
         va="top",
         fontsize=10,
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="black", alpha=0.9),
+        bbox=dict(
+            boxstyle="round,pad=0.3",
+            facecolor="white",
+            edgecolor="black",
+            alpha=0.9,
+        ),
     )
 
     plt.tight_layout()
@@ -75,6 +100,7 @@ def build_table_png(df: pd.DataFrame, output_path: Path):
 
     rename_map = {
         "model": "Model",
+        "users": "Počet používateľov",
         "precision@5": "Precision@5",
         "recall@5": "Recall@5",
         "map@5": "MAP@5",
@@ -86,8 +112,9 @@ def build_table_png(df: pd.DataFrame, output_path: Path):
     }
     pretty = pretty.rename(columns=rename_map)
 
-    for col in pretty.columns[1:]:
-        pretty[col] = pretty[col].map(lambda x: f"{x:.4f}")
+    for col in pretty.columns:
+        if col not in ["Model", "Počet používateľov"]:
+            pretty[col] = pretty[col].map(lambda x: f"{x:.4f}")
 
     fig, ax = plt.subplots(figsize=(14, 2.8))
     ax.axis("off")
@@ -102,7 +129,7 @@ def build_table_png(df: pd.DataFrame, output_path: Path):
     table.set_fontsize(10)
     table.scale(1, 1.8)
 
-    ax.set_title("Summary of extended recommender evaluation results", fontsize=16, pad=14)
+    ax.set_title("Súhrn výsledkov rozšíreného experimentu", fontsize=16, pad=14)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=220, bbox_inches="tight")
@@ -114,9 +141,10 @@ def main():
     sbert_csv = Path("evaluation_outputs_extended_sbert") / "extended_recommender_eval_summary.csv"
 
     if not tfidf_csv.exists():
-        raise FileNotFoundError(f"Missing file: {tfidf_csv}")
+        raise FileNotFoundError(f"Chýba súbor: {tfidf_csv}")
+
     if not sbert_csv.exists():
-        raise FileNotFoundError(f"Missing file: {sbert_csv}")
+        raise FileNotFoundError(f"Chýba súbor: {sbert_csv}")
 
     tfidf_df = pd.read_csv(tfidf_csv)
     sbert_df = pd.read_csv(sbert_csv)
@@ -129,32 +157,32 @@ def main():
     build_grouped_plot(
         df=df,
         metrics=["precision@5", "recall@5", "map@5", "ndcg@5"],
-        title="Extended recommender evaluation comparison (@5)",
-        output_path=out_dir / "combined_at_5.png",
+        title="Porovnanie výsledkov odporúčania v rozšírenom experimente (@5)",
+        output_path=out_dir / "combined_at_5_extended.png",
     )
 
     build_grouped_plot(
         df=df,
         metrics=["precision@10", "recall@10", "map@10", "ndcg@10"],
-        title="Extended recommender evaluation comparison (@10)",
-        output_path=out_dir / "combined_at_10.png",
+        title="Porovnanie výsledkov odporúčania v rozšírenom experimente (@10)",
+        output_path=out_dir / "combined_at_10_extended.png",
     )
 
     build_difference_plot(
         df=df,
-        output_path=out_dir / "metric_differences.png",
+        output_path=out_dir / "metric_differences_extended.png",
     )
 
     build_table_png(
         df=df,
-        output_path=out_dir / "results_table.png",
+        output_path=out_dir / "results_table_extended.png",
     )
 
     merged_csv = out_dir.parent / "extended_recommender_eval_summary_combined.csv"
     df.to_csv(merged_csv, index=False)
 
-    print(f"Plots saved to: {out_dir}")
-    print(f"Combined summary saved to: {merged_csv}")
+    print(f"Grafy boli uložené do: {out_dir}")
+    print(f"Spojený súhrnný CSV súbor bol uložený do: {merged_csv}")
 
 
 if __name__ == "__main__":
